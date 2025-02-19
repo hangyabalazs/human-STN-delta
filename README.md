@@ -25,7 +25,14 @@ This repository contains MATLAB analyses of single unit and multiunit electrophy
 - Add directories (with subdirectories) with the downloaded .m files to the Matlab path.
 - Run mountcb.m. Name the mounted Cellbase 'PD_CellBase'. When prompted to 'locate CellBase database file', locate and choose the CellBase.mat file from the data. Choose 'CellBase' for the time stamp conversion question.
 - Main function: PD_SSRT_MAIN.m
+- Typical installation time: 15 minutes
 
+## Instructions for use
+
+- Instructions to run on data: call PD_SSRT_MAIN.m from Matlab command window.
+- Expected output: data analysis figures regarding behavioral responsiveness and local synchrony (see https://www.medrxiv.org/content/10.1101/2024.12.02.24318298v1)
+- Expected run time for demo: 10 minutes
+- How to run software on your own data: mount your own CellBase in 'PD_CellBase'. Please observe standard CellBase formatting requirements (see https://github.com/hangyabalazs/CellBase).
 
 ## Dependencies
 
