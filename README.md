@@ -31,8 +31,16 @@ This repository contains MATLAB analyses of single unit and multiunit electrophy
 
 - Instructions to run on data: call PD_SSRT_MAIN.m from Matlab command window.
 - Expected output: data analysis figures regarding behavioral responsiveness and local synchrony (see https://www.medrxiv.org/content/10.1101/2024.12.02.24318298v1)
-- Expected run time for demo: 10 minutes
 - How to run software on your own data: mount your own CellBase in 'PD_CellBase'. Please observe standard CellBase formatting requirements (see https://github.com/hangyabalazs/CellBase).
+
+## Demo
+
+- Create a directory for the saved files.
+- Download the example data set.
+- We refer to the full path where the data is located on your computer as filesdir.
+- We refer to the full path where the results will be saved on your computer as rootdir.
+- After installation, call PD_SSRT_MAIN(rootdir,filesdir).
+- Typical run time on demo data: 200 minutes.
 
 ## Dependencies
 
