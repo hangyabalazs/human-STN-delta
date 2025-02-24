@@ -36,7 +36,7 @@ This repository contains MATLAB analyses of single unit and multiunit electrophy
 ## Demo
 
 - Create a directory for the saved files.
-- Download the example data set.
+- Download the example data set from https://figshare.com/s/f48c761a9c1dd62d1d1c.
 - We refer to the full path where the data is located on your computer as filesdir.
 - We refer to the full path where the results will be saved on your computer as rootdir.
 - After installation, call PD_SSRT_MAIN(rootdir,filesdir).
