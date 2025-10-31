@@ -77,7 +77,7 @@ end
 
 %% Compare groups
 
-if ~contains(grnm,'all')
+if ~contains(grnm,'all') && ~any(any(cellfun(@isempty, grvals(1:2,:))))
     ssd05_groupcomp(grvals(1:2,:),groups_nm(1:2),whichSSRT, conditions,stat)
 end
 end
@@ -314,6 +314,7 @@ for condi = 1:condnr
                 gr1 = [gr11; gr12]; gr2 = [gr21; gr22];
                 sidtit = 'bothsides';
         end
+        
         maxpatnr = max([length(gr1) length(gr2)]);
         grs_oneside = cat(2,[gr1; nan(maxpatnr-length(gr1),1)], [gr2; nan(maxpatnr-length(gr2),1)]);
         

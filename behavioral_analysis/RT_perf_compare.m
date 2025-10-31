@@ -384,7 +384,7 @@ for j = 1:size(pr.allpats,2)
                 Pat_stat.(patnm).(side)(ic).Pval =  pvalc;
                 Pat_stat.(patnm).(side)(ic).Diff_estimate =  c(ic,4);
             end
-            
+            Pat_stat.(patnm).(side)(ic).Stats =  stats;
             saveas(fig,fullfile(rt_figdir_gr,[patnm '_' side '.jpg']));
             saveas(fig,fullfile(rt_figdir_gr,[patnm '_' side '.pdf']));
             savefig(fig,fullfile(rt_figdir_gr,[patnm '_' side]));

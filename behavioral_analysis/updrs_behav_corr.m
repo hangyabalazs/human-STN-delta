@@ -11,7 +11,7 @@ function updrs_behav_corr(conditions)
 %               DBS stimulation condition
 %               - UPDRS scores are only calculated for preop and postop
 %               (DBS-on) conditions
-%               -ex.:{'preop','stimoff';'postop','stimon'}; 
+%               -ex.:{'preop','stimoff';'postop','stimon'};
 
 % See also POLYPREDCICALL_MOD, CALC_RT, GETDATA2ANALYSE
 
@@ -102,7 +102,9 @@ subplot(121)
 upd = updrs_tab{bi,[rectime '_medOFF']};
 rts = cell2mat(RT2(ai))';
 % [p, R] = polypredcicall_mod(upd,rts,0.95,'robust',0.1);
-[p, R] = polypredcicall_mod(upd,rts,0.95,'',0.1)
+if length(upd)>2
+    [p, R] = polypredcicall_mod(upd,rts,0.95,'',0.1);
+end
 hold on; scatter(upd, rts,[],'k','filled');
 xlabel([rectime ' UPDRS med OFF']); ylabel('RT (s)');
 title([rectime ' med OFF vs median RT'])
@@ -113,7 +115,9 @@ subplot(122)
 upd = updrs_tab{bi,[rectime '_medON']};
 rts = cell2mat(RT2(ai))';
 % [p, R] = polypredcicall_mod(upd,rts,0.95,'robust',0.1);
-[p, R] = polypredcicall_mod(upd,rts,0.95,'',0.1)
+if length(upd)>2
+    [p, R] = polypredcicall_mod(upd,rts,0.95,'',0.1);
+end
 hold on; scatter(upd, rts,[],'k','filled');
 xlabel([rectime ' UPDRS med ON']); ylabel('RT (s)');
 title([rectime ' med ON vs median RT'])
@@ -167,7 +171,9 @@ nn = ~isnan(ss2);
 ss2 = ss2(nn);
 upd = upd(nn);
 % [p, R] = polypredcicall_mod(upd,ss2,0.95,'robust',0.1);
-[p, R] = polypredcicall_mod(upd,ss2,0.95,'',0.1)
+if length(upd)>2
+    [p, R] = polypredcicall_mod(upd,ss2,0.95,'',0.1);
+end
 hold on; scatter(upd, ss2,[],'k','filled');
 xlabel([rectime ' UPDRS med OFF']); ylabel([param ' (s)']);
 title([rectime ' med OFF vs ' param])
@@ -181,7 +187,9 @@ nn = ~isnan(ss2);
 ss2 = ss2(nn);
 upd = upd(nn);
 % [p, R] = polypredcicall_mod(upd,ss2,0.95,'robust',0.1);
-[p, R] = polypredcicall_mod(upd,ss2,0.95,'',0.1)
+if length(upd)>2 
+[p, R] = polypredcicall_mod(upd,ss2,0.95,'',0.1);
+end
 hold on; scatter(upd, ss2,[],'k','filled');
 xlabel([rectime ' UPDRS med ON']); ylabel([param ' (s)']);
 title([rectime ' med ON vs ' param])
@@ -231,7 +239,10 @@ for pk = 1:2
     upd = updrs_tab{bi,[rectime '_medOFF']};
     % upd = updrs_tab{bi,['preop_medOFF']};
     % [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'robust',0.1);
-    [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'',0.1)
+    if length(upd)>2
+        
+        [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'',0.1)
+    end
     hold on; scatter(upd(nns), prf(nns),[],'k','filled');
     xlabel([rectime ' UPDRS med OFF']); ylabel('performance (%)');
     title([rectime ' med OFF vs ' tit])
@@ -242,7 +253,10 @@ for pk = 1:2
     upd = updrs_tab{bi,[rectime '_medON']};
     % upd = updrs_tab{bi,['preop_medON']};
     % [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'robust',0.1);
-    [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'',0.1)
+    if length(upd)>2
+        
+        [p, R] = polypredcicall_mod(upd(nns),prf(nns),0.95,'',0.1);
+    end
     hold on; scatter(upd(nns), prf(nns),[],'k','filled');
     xlabel([rectime ' UPDRS med ON']); ylabel('performance (%)');
     title([rectime ' med ON vs ' tit])

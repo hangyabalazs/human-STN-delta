@@ -18,8 +18,10 @@ function PD_ssrt_behav_MAIN(conditions, all_groups)
 % Institute of Experimental Medicine, Budapest, Hungary
 % szabo.johanna@koki.hun-ren.hu
 
+
 global filesdir
 
+tic
 condnr = size(conditions,1);
 stat = 'nonparam'; % statistics (ranksum if 'nonparam', ttest2 if 'param')
 
@@ -63,7 +65,7 @@ end
 
 
 
-%%% Comparison of reaction time and performance within and across patients
+%% Comparison of reaction time and performance within and across patients
 
 remoutliers = 'indiv'; % 'indiv' = remove outlier trials by individual patients| 'avg' = remove outliers patients| 'both'
 avgfig = true; % = true to make figures with all patients
@@ -76,7 +78,7 @@ for  g = 1:length(all_groups)
     groups_nm = all_groups{g};
     
     if contains(groups_nm,'all');
-        indivfig = true; % = true to make figures for each patient
+        indivfig = false; % = true to make figures for each patient
     else
         indivfig = false;
     end
@@ -85,7 +87,7 @@ for  g = 1:length(all_groups)
 end
 
 
-%%% Estimate SSD p0.5
+%% Estimate SSD p0.5
 
 for coci = 1:condnr; % loop over conditions
     rectime = conditions{coci,1};
@@ -98,7 +100,7 @@ for coci = 1:condnr; % loop over conditions
 end
 
 
-%%% Comparison of SSDp0.5
+%% Comparison of SSDp0.5
 
 for  g = 1:length(all_groups)
     groups_nm = all_groups{g};
@@ -107,7 +109,7 @@ for  g = 1:length(all_groups)
 end
 
 
-%%% RT change relative to preop condition
+%% RT change relative to preop condition
 
 for  g = 1:length(all_groups)
     groups_nm = all_groups{g};
@@ -116,9 +118,21 @@ for  g = 1:length(all_groups)
     preop_postop_RT(groups_nm,conditions)
 end
 
-%%% Correlate behavioural parameters with UPDRS scores
+%% Correlate behavioural parameters with UPDRS scores
 
 updrs_conditions = {'preop','stimoff';'postop','stimon'};
 
 updrs_behav_corr(updrs_conditions)
+
+toc
+
+%% Compare RT/ SSDp0.5 in trials with low/ high level of conflict
+
+RT_comp_cuepair_trialtypes(conditions)
+
+%% Stop Signal Delay and Reaction Time values for each patient
+get_SSDs_RTs(conditions)
+
+%% Trial numbers for each patient
+calculate_trialnrs
 end

@@ -23,7 +23,10 @@ function TE = PD_nosyncTE(Results,interp)
 CUE_ARD = Results.Trial.CUE_ARD(Results.Trial.CUE_ARD>=0)/1000;  % Cue
 FB_ARD = Results.Trial.FB_ARD(Results.Trial.FB_ARD>=0)/1000;   % Feedback
 
-
+if ~any(CUE_ARD~=0);
+    fprintf('NO Arduino timestamps.'); TE = [];
+    return;
+end
 validTRinx = 1:length(CUE_ARD);
 
 if interp

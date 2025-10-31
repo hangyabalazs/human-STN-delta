@@ -22,7 +22,7 @@ rectime = sess2analyse(1).rectime;
 
 
 
-rt_figdir = fullfile(figdir_pd, 'Behav','RTmean','AllSTN');
+rt_figdir = fullfile(figdir_pd, 'Behav','RTmedian');
 load(fullfile(rt_figdir,['All_RTs_all.mat']));
 
 
