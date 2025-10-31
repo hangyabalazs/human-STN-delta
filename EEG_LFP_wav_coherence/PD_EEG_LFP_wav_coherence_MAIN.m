@@ -15,10 +15,20 @@ function PD_EEG_LFP_wav_coherence_MAIN(EventTypes, SubEventTypes)
 % szabo.johanna@koki.hun-ren.hu
 
 % Intraop EEG and LFP event-triggered averages (ETA) aligned
-EEG_LFP_ETA_PD(EventTypes)
+% EEG_LFP_ETA_PD(EventTypes)
 
 % Mean-squared wavelet coherence (MSWC) map between intraop EEG and LFP
-EEG_LFP_Wcoh_PD(EventTypes,SubEventTypes)
+
+side = 'left';
+EEG_LFP_Wcoh_PD(EventTypes,side)
+
+% Compare partitions
+EEG_LFP_Wcoh_compare_partitions(EventTypes,SubEventTypes,side,'#StopPartition','all','common')
+
+if ismember('StimulusOn',EventTypes)
+    patgr_nm = 'all'; % 'RevSkip_slower' | 'all'
+    EEG_LFP_Wcoh_compare_partitions({'StimulusOn'},{'Ord','RevSkip'},side,'#CuepairPartition',patgr_nm,'common');
+end
 
 % Correlation map between reaction time and wavelet coherence map
 wcoh_map_RT

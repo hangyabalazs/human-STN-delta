@@ -19,26 +19,26 @@ plot_window = [-1 1];
 baseline_win = [-1 -.5];
 event = 'StimulusOn';
 freq_bands = [1 80];
-
+side = 'left';
 
 sess2analyse = getdata2analyse(filesdir, 'rectype','EEG',...
-    'rectime','intraop','patients', 'allpatients', 'side','left', 'condition','stimoff');
+    'rectime','intraop','patients', 'allpatients', 'side',side, 'condition','stimoff');
 
 
-% Calculate and save correlation maps patient-by-patient
+%% Calculate and save correlation maps patient-by-patient
 WCohmap_RTcorr_pats(sess2analyse,event,baseline_win,plot_window)
 
-% Draw correlation maps patient-by-patient
+%% Draw correlation maps patient-by-patient
 RTcorrmapW_FIG_pats(sess2analyse,event,event,plot_window,freq_bands,'basnorm')
 
-% Draw correlation maps averaged across patients + perform statistics
-WCohmap_patavg(sess2analyse,event,plot_window,baseline_win,freq_bands,0.05)
+%% Draw correlation maps averaged across patients + perform statistics
+WCohmap_patavg(sess2analyse,event,plot_window,baseline_win,freq_bands,0.05,'trialnorm')
 end
 
 
 
 %--------------------------------------------------------------------------
-function WCohmap_patavg(sess2analyse,event,plot_window,baseline_win,freq_bands,alpha)
+function WCohmap_patavg(sess2analyse,event,plot_window,baseline_win,freq_bands,alpha,normtype)
 
 global rootdir figdir_pd
 
@@ -50,6 +50,7 @@ sr = 250;
 times = epoch_win(1):1/sr:epoch_win(2);times = times(1:end-1);
 newtimes = plot_window(1):1/sr:plot_window(2);newtimes = newtimes(1:end-1);
 timinx = dsearchn(times',newtimes');
+
 
 baslim_inx = dsearchn(newtimes',baseline_win');
 basinx = baslim_inx(1):baslim_inx(2);
@@ -69,24 +70,52 @@ for si = 1:sessnr
     patnm = sess2analyse(si).patient;
     side = sess2analyse(si).side;
     
-    coefD{si} = RTcorrMAP.([patnm '_' side]).chanmean.(event).(event).trialnorm.CoefMap(f_ind,timinx,:);
+    coefD{si} = RTcorrMAP.([patnm '_' side]).chanmean.(event).(event).(normtype).CoefMap(f_ind,timinx,:);
     
     
 end
 allcoef_stat = cat(3,coefD{:});
-%
+
+
+
+if contains(lower(normtype), 'trial')
+    
+    allcoef_statN = allcoef_stat;
+    allcoef_statMean = mean(allcoef_stat,3);
+else
+    
+    %     bas_avgx = repmat(mean(allcoef_stat(:,basinx,:),2), [1 size(allcoef_stat,2) 1]);
+    %     bas_stdx = repmat(std(allcoef_stat(:,basinx,:),[], 2,'omitnan'), [1 size(allcoef_stat,2 ) 1]);
+    %     allcoef_statN = (allcoef_stat - bas_avgx)./bas_stdx;
+    bas_avg = repmat(mean(allcoef_stat(:,basinx,:),[2 3]), [1 size(allcoef_stat,2) 1]);
+    bas_std = repmat(std(allcoef_stat(:,basinx,:),[], [2 3],'omitnan'), [1 size(allcoef_stat,2) 1]);
+    allcoef_statMean = (mean(allcoef_stat,3) - bas_avg)./bas_std;
+end
+
+
 formula = 'mean(arg1,3);';
 [exactp_ersp,maskersp,~] = boostat_eeglab_J(allcoef_stat,[],alpha,1000,...
     false,'fdr',formula,basinx);
 
+% if strcmp(normtype,'trialnorm')
+%     bas_avgx = repmat(mean(allcoef_stat(:,basinx,:),2), [1 size(allcoef_stat,2) 1]);
+%     bas_stdx = repmat(std(allcoef_stat(:,basinx,:),[], 2,'omitnan'), [1 size(allcoef_stat,2 ) 1]);
+%     allcoef_statN = (allcoef_stat - bas_avgx)./bas_stdx;
+% else
+%     allcoef_statN = allcoef_stat;
+% end
+
 
 
 fig = figure;
-imagesc(newtimes,1:length(fff),mean(allcoef_stat,3));
-% crange = caxis;
-crange = [-.1 .1];
+imagesc(newtimes,1:length(fff),allcoef_statMean);
+crange = caxis;
+% crange = [-3 3];
 hold on;
-contour(newtimes,1:length(fff),maskersp,'Color','r')
+zmap = norminv(exactp_ersp);
+bootstatFDR_clustercorr(zmap,maskersp,fff,'intraop','EEG_LFP','Fp1',newtimes,1:length(fff))
+
+% contour(newtimes,1:length(fff),maskersp,'Color','r')
 caxis(crange)
 yti = round(linspace(1,length(fff), 4)) ;
 yticks(yti); yticklabels( arrayfun(@num2str,fff(yti),'UniformOutput',0) );
@@ -95,7 +124,7 @@ colormap(bone);
 title({['Patietn AVG, channelmean'],[side ', ' condi]});
 xlabel('Time (s)'); ylabel('Frequency (Hz)');
 c=colorbar; ylabel(c,'R','Rotation',270);
-fnm = fullfile(figdir,['AVG_' side '_' condi '_' event '_FR' num2str(freq_bands)]);
+fnm = fullfile(figdir,['AVG_' side '_' condi '_' event '_FR' num2str(freq_bands) '_WCoh' normtype]);
 saveas(fig,[fnm '.jpg'])
 saveas(fig,[fnm '.fig'])
 saveas(fig,[fnm '.pdf'])
@@ -238,6 +267,8 @@ times = epoch_win(1):1/new_sr:epoch_win(2);times = times(1:end-1);
 newtimes = plot_window(1):1/new_sr:plot_window(2);newtimes = newtimes(1:end-1);
 timinx = dsearchn(times',newtimes');
 
+rectype = sess2analyse(1).rectype;
+rectime = sess2analyse(1).rectime;
 
 load(fullfile(figdir,'RTcorrMAP.mat'))
 
@@ -255,7 +286,7 @@ for si = 1:sessnr
     coefD = RTcorrMAP.([patnm '_' side]).chanmean.(event).(evty).(normtype).CoefMap(f_ind,:);
     pvalD = RTcorrMAP.([patnm '_' side]).chanmean.(event).(evty).(normtype).PMap(f_ind,:);
     
-    corrmapfig(coefD,pvalD,normtype,times,timinx,ff(f_ind),patnm,condi,side,event,evty,'chanmean',figdir);
+    corrmapfig(coefD,pvalD,normtype,times,timinx,ff(f_ind),patnm,condi,side,event,evty,'chanmean',figdir,'none',rectime,rectype);
     
 end
 fprintf('\n')
