@@ -1,4 +1,4 @@
-function stacked_bar_perc(y,barcolors,textcolor)
+function h = stacked_bar_perc(y,barcolors,textcolor)
 %STACKED_BAR_PERC   Stacked bar plots with percentage 
 %   STACKED_BAR_PERC(y,barcolors,textcolor) draws 2 groups of stacked bar plots using
 %   data in Y. Percentage of stacked bars of the stacked bar groups are
@@ -18,8 +18,9 @@ function stacked_bar_perc(y,barcolors,textcolor)
 
 
 h = bar(y,'stacked', 'FaceColor','flat');
-h(1).CData = barcolors(1,:);
-h(2).CData = barcolors(2,:);
+for k = 1:size(barcolors,1)
+    h(k).CData = barcolors(k,:);
+end
 
 % Compute percentage
 yp = y./sum(y,2) * 100; 

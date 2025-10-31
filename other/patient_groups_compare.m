@@ -93,11 +93,11 @@ bursting_comp(cellids,groups_nm,grtype,BIthr,resdir)
 meanFR_comp(cellids,groups_nm,grtype,resdir)
 
 
-% Compare responsive units
-resp_comp(cellids,groups_nm,grtype,resdir,EventTypes,[.05 0.01])
+%% Compare responsive units
+resp_comp(cellids,groups_nm,grtype,resdir,EventTypes,.05)
 
 
-% Compare spike-phase coupling
+%% Compare spike-phase coupling
 PC_comp(cellids,groups_nm,grtype,resdir,'all',EventTypes,'LFP',[0 15],[0 0.8],false)
 
 
@@ -438,7 +438,7 @@ for ei = 1:length(EventTypes_all)
             
             [psth_n{k,respk}] = norm_psth_map1(resp_cellids{k,respk},resptypes{respk},event,...
                 'baseline','indiv','basl_psth',{},'bwin',bwin, 'parts','all','cLim',[-6 6],...
-                'bindex',[],'isfig',isfig,'sigma',0.06);
+                'bindex',[],'isfig',isfig,'sigma',0.08);
             if isfig
                 
                 xL = xlim;
@@ -494,7 +494,7 @@ for ei = 1:length(EventTypes_all)
             for ai = 1:length(alphas)
                 [~, pgroup, ~, ~, statsgroup, statsinter] = std_stat(statdat,'groupstats','on',...
                     'mode','fieldtrip','fieldtripmethod','montecarlo','mcorrect','cluster',...
-                    'fieldtripalpha',alphas(ai),'fieldtripclusterparam',{'clusterstatistic','wcm'});
+                    'fieldtripalpha',alphas(ai),'fieldtripclusterparam',{'clusterstatistic','maxsize'});
                 subplot(2,1,rt)
                 if ~isempty(pgroup)
                     sign_p = pgroup{1};

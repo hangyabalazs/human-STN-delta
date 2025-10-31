@@ -21,8 +21,12 @@ function  varargout = clinical_groups(varargin)
 
 if nargin<1
     groups_nm =  {'tremor-dominant','akinetic-rigid','mixed'};
-else
+elseif nargin<2
     groups_nm = varargin{1};
+elseif nargin>1
+    groups_nm = varargin{1};
+    rectime = varargin{2};
+    condition = varargin{3};
 end
 
 global rootdir figdir_pd
@@ -31,19 +35,19 @@ grnr = length(groups_nm);
 patgroups = cell(1,grnr);
 
 if ismember(groups_nm,{'RTdecrease','RTincrease'})
-    load(fullfile(figdir_pd,'Behav','Behav_groups.mat'));
+    load(fullfile(rootdir,'Behav_groups.mat'));
     
     for gri = 1:grnr
         patgroups{gri} = Behav_groups.(groups_nm{gri});
     end
     
-elseif contains(groups_nm,{'low_UPDRS','high_UPDRS'})
-    
-    load(fullfile(rootdir,'UPDRS_patgroups.mat'));
-
-    for gri = 1:grnr
-        patgroups{gri} = UPDRS_patgroups.(groups_nm{gri});
-    end
+% elseif contains(groups_nm,{'low_UPDRS','high_UPDRS'})
+%     
+%     load(fullfile(rootdir,'UPDRS_patgroups.mat'));
+% 
+%     for gri = 1:grnr
+%         patgroups{gri} = UPDRS_patgroups.(groups_nm{gri});
+%     end
     
 elseif ismember(groups_nm,{'tremor-dominant','akinetic-rigid','mixed'})
     
@@ -53,6 +57,15 @@ elseif ismember(groups_nm,{'tremor-dominant','akinetic-rigid','mixed'})
         ginx = ismember(clin_table.PDSubtype,groups_nm{gri});
         patgroups{gri} = clin_table.CodeName(ginx);
     end
+    
+elseif ismember(groups_nm,{'RevSkip_slower', 'RevSkip_faster'});
+    
+        load(fullfile(rootdir,'Ordered_vs_ReversedSkipped_groups.mat'));
+
+     for gri = 1:grnr
+        patgroups{gri} = Ordered_vs_ReversedSkipped_groups.([rectime '_' condition]).(groups_nm{gri});
+    end
+    
 end
 varargout{1} = patgroups;
 varargout{2} = groups_nm;

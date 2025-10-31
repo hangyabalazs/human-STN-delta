@@ -1,4 +1,4 @@
-function corrmapfig(coefD,pvalD,normtype,times,timinx,f,patnm,condi,side,event,evty,act_chan,figdir)
+function corrmapfig(coefD,pvalD,normtype,times,timinx,f,patnm,condi,side,event,evty,act_chan,figdir,correct, varargin)
 % CORRMAPFIG  Correlation map figure
 %   CORRMAPFIG(coefD,pvalD,normtype,times,timinx,f,patnm,condi,side,event,evty,act_chan,figdir)
 %   Generates a figure of correlation map COEFD, contours significant
@@ -24,8 +24,18 @@ function corrmapfig(coefD,pvalD,normtype,times,timinx,f,patnm,condi,side,event,e
 % Institute of Experimental Medicine, Budapest, Hungary
 % szabo.johanna@koki.hun-ren.hu
 
-psig = pvalD<0.05;
-
+if isempty(varargin);
+    rectime = varargin{1};
+    rectype = varargin{2};
+else
+    rectime = 'intraop'; rectype = 'LFP'; 
+end
+if strcmp(correct, 'fdr')
+    new_alpha = fdr( pvalD(:), 0.05);
+    psig = pvalD<new_alpha;
+elseif strcmp(correct, 'none')
+    psig = pvalD<0.05;
+end
 
 fig = figure;
 %         set(fig,'Visible','off');
@@ -39,7 +49,10 @@ yti = round(linspace(1,length(f), 5)) ;
 yticks(yti); yticklabels( arrayfun(@num2str,f(yti),'UniformOutput',0) );
 
 hold on;
-contour(times(timinx),1:length(f),psig(:,timinx),'Color','r');
+
+zmap = norminv(pvalD);
+bootstatFDR_clustercorr(zmap(:,timinx),psig(:,timinx),f,rectime,rectype,act_chan,times(timinx),1:length(f))
+% contour(times(timinx),1:length(f),psig(:,timinx),'Color','r');
 xlabel('Time (s)');
 ylabel('Freq (Hz)');
 title({[patnm ', ' condi ', ' side],[event ', ' evty],act_chan});
@@ -51,7 +64,7 @@ if ~isfolder(figdir2); mkdir(figdir2); end;
 fnm = fullfile(figdir2,[patnm '_' side '_' condi '_' act_chan '_' normtype]);
 saveas(fig,[fnm '.jpg']);
 saveas(fig,[fnm '.fig']);
-saveas(fig,[fnm '.pdf']);
+% saveas(fig,[fnm '.pdf']);
 close(fig);
 
 
