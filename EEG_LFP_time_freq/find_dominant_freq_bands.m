@@ -127,9 +127,12 @@ for snr = 1:length(sess2analyse)
                     dom_frange = [dom_freq-(dom_freq/6) dom_freq+(dom_freq/6)];
                     dom_fra_ind = intersect(find(f>=dom_frange(1)),find(f<=dom_frange(2)));
                 else
-                    fprintf('No freq peak %s %s\n',patnm,act_chan)
-                    DominantFreqs.(orig_frnm).(patnm).(side).([rectime '_' rectype]).(tag).(act_chan) = [];
-                    continue
+                    %                     fprintf('No freq peak %s %s\n',patnm,act_chan)
+                    %                     DominantFreqs.(orig_frnm).(patnm).(side).([rectime '_' rectype]).(tag).(act_chan) = [];
+                    %                     continue
+                    dom_freq = median(f(pre_f_inx));
+                    dom_frange = [dom_freq-(dom_freq/6) dom_freq+(dom_freq/6)];
+                    dom_fra_ind = intersect(find(f>=dom_frange(1)),find(f<=dom_frange(2)));
                 end
             else
                 DominantFreqs.(orig_frnm).(patnm).(side).([rectime '_' rectype]).(tag).(act_chan) = [];

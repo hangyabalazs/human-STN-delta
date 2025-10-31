@@ -162,29 +162,40 @@ p = prs.Results;
 compnr = length(groups2comp_labels);
 rectime = sess2analyse(1).rectime;
 rectype = sess2analyse(1).rectype;
+tag = unique({sess2analyse.tag});
+if length(tag)==1; cond = tag{1}; 
+else; cond = 'bothcond'; 
+end;
 
-%%% Within subject comparison %%%
-if p.intrastat
-    statwin = [p.topo_wins(1,1) p.topo_wins(end,end)];
-    
-    for alfi = p.alphas
-        within_pat_stat_loop(sess2analyse,EventTypes,SubEventTypes,p.freq_bands,...
-            statwin,p.subregion,alfi,p.mcorrect,p.avg_clim,p.diff_clim,p.baseline_win,p.csd);
-    end
-end
+% %%% Within subject comparison %%%
+% if p.intrastat
+%     statwin = [p.topo_wins(1,1) p.topo_wins(end,end)];
+%     
+%     for alfi = p.alphas
+%         within_pat_stat_loop(sess2analyse,EventTypes,SubEventTypes,p.freq_bands,...
+%             statwin,p.subregion,alfi,p.mcorrect,p.avg_clim,p.diff_clim,p.baseline_win,p.csd);
+%     end
+% end
 
 %%% Inter subject comparison %%%
 if p.interstat
     % Select sessions according to side
-    sidinx = ismember({sess2analyse.side},p.side);
-    sess2analyse2 = sess2analyse(sidinx);
+    if ~contains(p.side,'both')
+        sidinx = ismember({sess2analyse.side},p.side);
+        sess2analyse2 = sess2analyse(sidinx);
+    else
+        sess2analyse2 = sess2analyse;
+    end
     
     
     
     % Sort sessions according to clinical group
     sess2analyse3 = {};
     if ~isempty(p.patgroup_nm)
-        patgroups = clinical_groups(p.patgroup_nm);
+        patgroups = clinical_groups(p.patgroup_nm,rectime,cond);
+        if isempty(patgroups)
+            fprintf('No patient in this group\n'); return;
+        end
         for k = 1:length(patgroups)
             patinx = ismember({sess2analyse2.patient},patgroups{k});
             sess2analyse3{k} = sess2analyse2(patinx);
@@ -195,6 +206,9 @@ if p.interstat
         sessgroup = [p.side '_RACEfalse'];
     end
     
+    if contains(p.side,'both')||length(tag)==1
+        sessgroup = [sessgroup '_' cond];
+    end
     %% Frequency
     for fii = 1:length(p.fr_names)
         frx = p.freq_bands(fii,:);
@@ -222,6 +236,9 @@ if p.interstat
                 
             elseif ismember('patgroups',groups2comp_labels) && ismember('conditions',groups2comp_labels)
                 groups2comp = {'stimoff','stimon'; p.patgroup_nm{:}};
+                
+            elseif ismember('sides',groups2comp_labels) && compnr==1
+                groups2comp = {'left','right'};
                 
                 
                 
@@ -255,7 +272,7 @@ if p.interstat
                         'fr_name',frnm,'stat',p.stat_type,'alpha',alfi,'csd',p.csd,...
                         'topo_wins',p.topo_wins,'sessgroup',sessgroup,...
                         'rectime',rectime,'rectype',rectype,'side',p.side,...
-                        'avg_clim',p.avg_clim,'errorshade','SE');
+                        'avg_clim',p.avg_clim,'errorshade','SE','baseline_type',p.baseline_type);
                 end
                 
                 
@@ -386,9 +403,9 @@ if ~isempty(p.baseline_win)
     baslims = dsearchn(times',p.baseline_win');
     
     
-    %     if strcmp(p.baseline_type,'indiv')
-    %         newtinx = newtinx-baslims(1)+1;
-    %     end
+    if strcmp(p.baseline_type,'indiv')
+        newtinx = newtinx-baslims(1)+1;
+    end
     
     
 end
@@ -416,7 +433,7 @@ end
 
 
 
-if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat']))~=2
+if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.baseline_type '.mat']))~=2
     
     %% Patientgroups
     grnr = length(p.sess2analyse);
@@ -441,12 +458,12 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
                 resdir = fullfile(curr_resdir,'EventAVGs_bipol');
             end
             
-            % Individual baseline (/ partition/ one patient)
-            %             if strcmp(p.baseline_type,'indiv') && ~isempty(p.baseline_win)
-            %                 basnm = ['BASLims' num2str(baslims(1)) '_' num2str(baslims(2))];
-            %             else
-            basnm = ['TRN_AVG'];
-            %             end
+%             Individual baseline (/ partition/ one patient)
+            if strcmp(p.baseline_type,'indiv') && ~isempty(p.baseline_win)
+                basnm = ['BASLims' num2str(baslims(1)) '_' num2str(baslims(2))];
+            else
+                basnm = ['TRN_AVG'];
+            end
             
             
             
@@ -679,6 +696,27 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
                 statmat{gi,ic} = {patgroup{1}(f_ind,newtinx,:), patgroup{2}(f_ind,newtinx,:)};
             end
             
+            
+        elseif  ismember('sides',groups2comp_labels) && compnr==1 % compare stimoff- stimon conditions
+                for gi = 1:2
+                    sd = p.groups2comp{gi};
+                    
+                    pinx = find(strcmp({p.sess2analyse{1}.side},sd));
+                    pow = cat(3,patmat{pinx,ic,1});
+                    
+                    if strcmp(p.baseline_type,'indiv')
+                        bas_avg = repmat( nanmean(pow(:,baslims(1): baslims(2),:),[2 3])   ,[1 size(pow,2) size(pow,3)]);
+                        bas_sd = repmat( std(   pow(:,baslims(1): baslims(2),:)     ,[],[2 3], 'omitnan')   ,[1 size(pow,2) size(pow,3)]);
+                        pow = (pow- bas_avg)./ bas_sd;
+                    end
+                    statmat{gi,ic} = pow(f_ind,newtinx,:);
+                    
+                end
+                
+                
+                
+            
+            
         end
         
         
@@ -740,6 +778,7 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
             
             if p.isfig
                 fig = figure;
+                set(fig,'Visible','off')
                 
                 for si = 1:2
                     subplot(3,1,si);
@@ -768,6 +807,7 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
                 else
                     fnm = fullfile(resdir_statfigs,[act_chan  '_' num2str(p.alpha) '_' p.mcorrect '_BAS' num2str(p.baseline_win)]);
                 end
+                fnm = [fnm '_' p.baseline_type];
                 
                 saveas(fig,[fnm '.jpg']);
                 saveas(fig,[fnm '.fig']);
@@ -804,7 +844,7 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
                 if p.indivfig
                     
                     fig = figure;
-                    
+                    set(fig,'Visible','off')
                     for cipi = 1:2
                         
                         for pipi = 1:2
@@ -873,6 +913,7 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
                     else
                         fnm = fullfile(resdir_statfigs,[p.side '_' act_chan  '_' num2str(p.alpha) '_' p.mcorrect '_BAS' num2str(p.baseline_win)]);
                     end
+                    fnm = [fnm '_' p.baseline_type];
                     saveas(fig,[fnm '.jpg']);
                     saveas(fig,[fnm '.fig']); close(fig)
                 end
@@ -888,11 +929,12 @@ if exist(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat
     end
     
     if strcmp(p.rectype,'LFP')
-        save(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN.mat']),'statmat','statscond','pcond','chanlabels');
+        fnm = fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN_' p.baseline_type]);
     else
-        save(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat']),'statmat','statscond','pcond','chanlabels');
+        fnm = fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.baseline_type]);
     end
-    
+    fnm = [fnm '_' p.baseline_type];
+    save([fnm '.mat'],'statmat','statscond','pcond','chanlabels');
 else
     
     epoch_win = [-2 2];
@@ -902,7 +944,7 @@ else
     new_times = stat_win(1):1/new_sr:stat_win(2);
     
     
-    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat']))
+    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.baseline_type '.mat']))
     
 end
 
@@ -921,7 +963,7 @@ if strcmp(p.rectime,'postop') && ~p.bipol
     
     if p.isfig
         fig = figure;
-        
+        set(fig,'Visible','off')
         spcols = winnr*3+2;
         sprows = compnr+1;
         % Averages
@@ -1016,8 +1058,9 @@ if strcmp(p.rectime,'postop') && ~p.bipol
         
         set(fig,'Position',get(0,'Screensize'))
         set(0, 'DefaultFigureRenderer', 'painters');
-        saveas(fig,fullfile(resdir_statfigs,['Topo_' p.side '_' num2str(p.alpha) '_' p.mcorrect '.jpg']));
-        saveas(fig,fullfile(resdir_statfigs,['Topo_' p.side '_' num2str(p.alpha) '_' p.mcorrect '.fig'])); close(fig)
+        fnm = fullfile(resdir_statfigs,['Topo_' p.side '_' num2str(p.alpha) '_' p.mcorrect '_' p.baseline_type]);
+        saveas(fig,[fnm '.jpg']);
+        saveas(fig,[fnm '.fig']); close(fig);
     end
 end
 end
@@ -1037,6 +1080,7 @@ addParameter(prs,'topo_wins',[-0.5 0; 0 0.5],@ismatrix);
 addParameter(prs,'stat','eeglab',@ischar);
 addParameter(prs,'alpha',0.01,@isnumeric);
 addParameter(prs,'mcorrect','fdr',@ischar);
+addParameter(prs,'subregion','all',@ischar);
 
 addParameter(prs,'fr_name','delta',@isvector);
 addParameter(prs,'avg_clim',[-2 2],@isvector);
@@ -1048,6 +1092,7 @@ addParameter(prs,'rectype','EEG',@ischar);
 addParameter(prs,'side','left',@ischar);
 
 addParameter(prs,'errorshade','SE',@ischar);
+addParameter(prs,'baseline_type','common',@ischar);
 parse(prs,groups2comp_labels,groups2comp,event2comp,varargin{:})
 p = prs.Results;
 
@@ -1076,15 +1121,15 @@ resdir_statfigs = fullfile(figdir_pd,[p.rectime '_' p.rectype],'stats',p.sessgro
 
 
 if strcmp(p.rectype,'LFP')
-    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN.mat']));
+    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN_' p.baseline_type '.mat']));
 else
-    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat']));
+    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.baseline_type '.mat']));
 end
 
 channr = length(chanlabels);
 for ichh = 1:channr
     fig = figure;
-    
+    set(fig,'Visible','off')
     
     colors = [1 0 0; 0 1 0; 0 0 0; 0 0 1];
     if compnr==1
@@ -1154,7 +1199,8 @@ for ichh = 1:channr
     end
     
     figdir = fullfile(resdir_statfigs,'pow_timeseries'); if ~isfolder(figdir); mkdir(figdir); end;
-    fnm = fullfile(figdir,[ p.sessgroup '_' chanlabels{ichh} '_' num2str(p.alpha) ]);
+    fnm = fullfile(figdir,[ p.sessgroup '_' chanlabels{ichh} '_' num2str(p.alpha) '_' p.baseline_type]);
+    
     saveas(fig,[fnm '.jpg'])
     saveas(fig,[fnm '.fig'])
     close(fig);
@@ -1226,15 +1272,15 @@ resdir_statfigs = fullfile(figdir_pd,[p.rectime '_' p.rectype],'stats',p.sessgro
 
 
 if strcmp(p.rectype,'LFP')
-    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN.mat']));
+    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.subregion 'STN_' p.baseline_type '.mat']));
 else
-    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '.mat']));
+    load(fullfile(resdir_statfigs,['statmatx_' p.side '_' num2str(p.alpha) '_' p.baseline_type '.mat']));
 end
 
 channr = length(chanlabels);
 for ichh = 1:channr
     fig = figure;
-    
+    set(fig,'Visible','off')
     
     colors = [1 0 0; 0 1 0; 0 0 0; 0 0 1];
     if compnr==1
@@ -1299,6 +1345,7 @@ for ichh = 1:channr
     
     figdir = fullfile(resdir_statfigs,'bar_stats',['WIN' num2str(p.plotwin) '_FR' num2str(plotfr)]); if ~isfolder(figdir); mkdir(figdir); end;
     fnm = fullfile(figdir,['WIN' num2str(p.plotwin) '_FR' num2str(plotfr) '_'  p.sessgroup '_' chanlabels{ichh} ]);
+    fnm = [fnm '_' p.baseline_type];
     saveas(fig,[fnm '.jpg'])
     saveas(fig,[fnm '.fig'])
     close(fig);
@@ -1441,7 +1488,7 @@ for fri = 1:size(freq_bands,1)
     
     
     fig = figure;
-    
+    set(fig,'Visible','off')
     for si = 1:2
         subplot(3,1,si);
         tf = mean(evpow_subs2{si,1},3);
@@ -1469,11 +1516,13 @@ for fri = 1:size(freq_bands,1)
     if strcmp(rectype,'LFP')
         saveas(fig,fullfile(resdirfr,[fnm '_' subregion 'STN.jpg']));
         saveas(fig,fullfile(resdirfr,[fnm '_' subregion 'STN.fig']));
-        saveas(fig,fullfile(resdirfr,[fnm '_' subregion 'STN.emf'])); close(fig)
+%         saveas(fig,fullfile(resdirfr,[fnm '_' subregion 'STN.emf']));
+        close(fig)
     else
         saveas(fig,fullfile(resdirfr,[fnm '.jpg']));
         saveas(fig,fullfile(resdirfr,[fnm '.fig']));
-        saveas(fig,fullfile(resdirfr,[fnm '.emf'])); close(fig)
+        %         saveas(fig,fullfile(resdirfr,[fnm '.emf']));
+        close(fig)
     end
     
     %

@@ -90,7 +90,7 @@ suptitle(suptit)
 fnm = fullfile(topodir,savetit);
 saveas(fig,[fnm '.png']);
 saveas(fig,[fnm '.fig']);
-saveas(fig,[fnm '.emf']);
+% saveas(fig,[fnm '.emf']);
 %     saveas(fig,[fnm '.pdf']);
 close(fig);
 

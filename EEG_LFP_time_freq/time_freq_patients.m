@@ -68,6 +68,7 @@ addParameter(prs,'csd',true,@islogical);
 addParameter(prs,'bipol',false,@islogical);
 addParameter(prs,'choi',{},@iscell);
 addParameter(prs,'alphas',NaN,@(x) isnumeric(x)||isvector(x));
+addParameter(prs,'only_stoptrials',false,@islogical);
 parse(prs,sess2analyse,EventTypes,SubEventTypes,epoch_win,baseline_win,varargin{:});
 p = prs.Results;
 
@@ -76,115 +77,35 @@ p = prs.Results;
 rectype = sess2analyse(1).rectype;
 
 
-% Wavelet transformation
-PD_wav(sess2analyse,p.choi,'csd',p.csd,'bipol',p.bipol); % wavelet of epochs(epochs concatenated)
-
 
 
 % Full-epoch length single trial normalization + power averages across epochs (patient-by-patient)
+% save_patavgs_trialnorm(sess2analyse,EventTypes,{},epoch_win,'csd',...
+%     p.csd,'bipol',p.bipol,'alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
+
 save_patavgs_trialnorm(sess2analyse,EventTypes,SubEventTypes,epoch_win,'csd',...
-    p.csd,'bipol',p.bipol,'alpha',p.alphas);
+    p.csd,'bipol',p.bipol,'alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
+
 
 % Baseline single trial normalization + power averages across epochs (patient-by-patient)
+% save_patavgs_bascorr(sess2analyse,EventTypes,{},epoch_win,...
+%     baseline_win,'stat_win',p.stat_time,'csd',p.csd,'bipol',p.bipol,'measure','Pow','alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
+% % 
 save_patavgs_bascorr(sess2analyse,EventTypes,SubEventTypes,epoch_win,...
-    baseline_win,'stat_win',p.stat_time,'csd',p.csd,'bipol',p.bipol,'measure','Pow','alpha',p.alphas);
+    baseline_win,'stat_win',p.stat_time,'csd',p.csd,'bipol',p.bipol,'measure','Pow','alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
 
 
 if strcmp(rectype, 'LFP')
+    
+    save_patavgs_bascorrCHANMEAN(sess2analyse,EventTypes,{},epoch_win,...
+        baseline_win,'stat_win',p.stat_time,'csd',p.csd,'alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
+    
     save_patavgs_bascorrCHANMEAN(sess2analyse,EventTypes,SubEventTypes,epoch_win,...
-        baseline_win,'stat_win',p.stat_time,'csd',p.csd,'alpha',p.alphas);
+        baseline_win,'stat_win',p.stat_time,'csd',p.csd,'alpha',p.alphas,'only_stoptrials',p.only_stoptrials);
 end
 
 
 end
-
-
-
-%--------------------------------------------------------------------------
-function PD_wav(sess2analyse,choi,varargin)
-%PD_WAV     Wavelet transform of all data
-% Applies wavelet transformation (see eegwavelet2) to preprocessed epoched data (see preprocess_PD).
-% Trial data are concatenated and zscored prior to transformation
-% (wavelet analysis is based on the code of Christopher Torrence and Gilbert P. Compo,1995-1998).
-% 
-% Complex wavelet coefficients and frequency vectors are saved in results folder of each patient in 'TFpows_blocks' subdirectory.
-% Epoched data is saved in 4 blocks (for faster loading of data).
-
-% 
-% Required inputs:
-%   SESS2ANALYSE - struct containing all necessary information (name of patient, side
-%     of experiment, tag of condition, session folder path) of sessions that
-%     need to be analysed (see getdata2analyse)
-%
-%   CHOI - cell array of channels of interest; if empty, loops over all
-%     channels
-% 
-% Optional input:
-%   'csd'           true | false, if true, CSD transformed EEG data is used
-%                   (relevant only for postoperative EEG data)
-% 
-%   'bipol'         true | false, if true, F4-F3 bipolar derivation of EEG data is used
-%                   (relevant only for postoperative EEG data)
-
-%
-% See also: EEGWAVELET2
-
-
-global rootdir
-
-
-prs = inputParser;
-addRequired(prs,'sess2analyse',@isstruct)
-addRequired(prs,'choi',@iscell)
-addParameter(prs,'csd',false,@islogical);
-addParameter(prs,'bipol',false,@islogical);
-
-
-parse(prs,sess2analyse,choi,varargin{:});
-p = prs.Results;
-
-%%
-for snr = 1:length(sess2analyse)
-    curr_resdir = sess2analyse(snr).folder;
-    
-    side = sess2analyse(snr).side;
-    tag = sess2analyse(snr).tag;
-    patnm = sess2analyse(snr).patient;
-    
-    fprintf('%s %s %s...\n',patnm, side, tag);
-    
-    try
-        if p.csd
-            EEG_ep = pop_loadset([curr_resdir filesep 'EEG_2plot_CSD.set']);
-            tf_dir = fullfile(curr_resdir, 'TFpows_blocks_CSD');
-            fastif(~isdir(tf_dir),mkdir(tf_dir),0);
-        elseif p.bipol
-            EEG_ep = pop_loadset([curr_resdir filesep 'EEG_2plot_bipol.set']);
-            tf_dir = fullfile(curr_resdir, 'TFpows_blocks_bipol');
-            fastif(~isdir(tf_dir),mkdir(tf_dir),0);
-        else
-            EEG_ep = pop_loadset([curr_resdir filesep 'EEG_2plot.set']);
-            tf_dir = fullfile(curr_resdir, 'TFpows_blocks');
-            fastif(~isdir(tf_dir),mkdir(tf_dir),0);
-            
-        end
-    catch
-        fprintf('EEG_ep fail: %s,%s,%s.\n',patnm,side,tag);
-        continue
-    end
-    
-    
-    % Wavelet transform
-    try
-        [EEG_ep_choi] = concat_wav_pd(choi,EEG_ep,4,tf_dir);
-        
-    catch
-        fprintf('Wavtransf fail: %s,%s,%s.\n',patnm,side,tag);
-        continue
-    end
-end
-end
-
 
 
 
@@ -204,7 +125,8 @@ addParameter(prs,'bipol',false,@islogical);
 addParameter(prs,'measure','Pow',@ischar);
 addParameter(prs,'chan','F4',@ischar);
 addParameter(prs,'alpha',NaN,@isnumeric);
-addParameter(prs,'mcorrect','fdr',@ischar); % fdr  | none
+addParameter(prs,'mcorrect','cluster',@ischar); % fdr if bootstat, cluster if perm stat | none
+addParameter(prs,'only_stoptrials',false,@islogical);
 parse(prs,sess2analyse,EventTypes,SubEventTypes,epoch_win,varargin{:})
 p = prs.Results;
 
@@ -250,7 +172,7 @@ end
 
 Evinxx = [];
 
-if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 
 new_sr = 50;
 new_time = epoch_win(1):1/new_sr:epoch_win(2);
@@ -275,6 +197,7 @@ for si = 1:sessnr
     % Channel loop
     chnr = length(chanlabels);
     for ich = 1:chnr
+        tic
         act_chan = chanlabels{ich};
         fprintf('\n%s...',act_chan)
         
@@ -313,27 +236,32 @@ for si = 1:sessnr
                 
                 
                 
-                evavg_nm = [ event '_' evty '_AVGs.mat'];
-                epoch_nm = [ event '_' evty '_EPOCHs.mat'];
-                evSTAT_nm = [ event '_' evty '_STATs.mat'];
+                evavg_nm = [ event '_' evty '_AVGs'];
+                epoch_nm = [ event '_' evty '_EPOCHs'];
+                evSTAT_nm = [ event '_' evty '_STATs'];
                
+                if p.only_stoptrials
+                    evavg_nm = [evavg_nm '_only_stoptrials'];
+                    epoch_nm = [epoch_nm '_only_stoptrials'];
+                    evSTAT_nm = [evSTAT_nm '_only_stoptrials'];
+                end
                 
                 
-                if exist(fullfile(resdir,evavg_nm))==2
-                    load(fullfile(resdir,evavg_nm))
+                if exist(fullfile(resdir,[evavg_nm '.mat']))==2
+                    load(fullfile(resdir,[evavg_nm '.mat']))
                 else
                     EventAVGs = struct;
                 end
                 
-                if exist(fullfile(resdir,evSTAT_nm))==2
-                    load(fullfile(resdir,evSTAT_nm))
+                if exist(fullfile(resdir,[evSTAT_nm '.mat']))==2
+                    load(fullfile(resdir,[evSTAT_nm '.mat']))
                 else
                     EventSTAT = struct;
                 end
                 
                   
-                if exist(fullfile(resdir,epoch_nm))==2
-                    load(fullfile(resdir,epoch_nm))
+                if exist(fullfile(resdir,[epoch_nm '.mat']))==2
+                    load(fullfile(resdir,[epoch_nm '.mat']))
                 else
                     EventEPOCHs = struct;
                 end
@@ -349,6 +277,10 @@ for si = 1:sessnr
                 if ~strcmp(event,'StopSignal') && ismember(evty,{'FailedStopTrial','SuccesfulStopTrial'});
                     
                     [~,evinx] = StimOn_stoppart_evinx(Evinxx,event,evty);
+                elseif strcmp(event,'StimulusOn') && p.only_stoptrials && isequal(event, evty)
+                    [~,evinx1] = StimOn_stoppart_evinx(Evinxx,event,'FailedStopTrial');
+                    [~,evinx2] = StimOn_stoppart_evinx(Evinxx,event,'SuccesfulStopTrial');
+                    evinx = sort([evinx1 evinx2]);
                 else
                     evinx = Evinxx.(event).(evty).epoch_index;
                 end
@@ -396,7 +328,9 @@ for si = 1:sessnr
                 if ~isnan(p.alpha)
                     hold on;
                     [exactp_ersp,maskersp,alphafdr] = boostat_eeglab_J(evpowTRN,f,p.alpha,1000,false,p.mcorrect,formula);
+                    
                     EventSTAT.(act_chan).TrialNorm.p_ersp =  exactp_ersp;
+%                     EventSTAT.(act_chan).TrialNorm.diffmap =  diffmap;
                     EventSTAT.(act_chan).TrialNorm.mask_ersp =  maskersp;
                     EventSTAT.(act_chan).TrialNorm.alphafdr =  alphafdr;
                     EventSTAT.(act_chan).TrialNorm.alpha =  p.alpha;
@@ -408,14 +342,15 @@ for si = 1:sessnr
                 
                 
                 
-                save(fullfile(resdir,evavg_nm),'EventAVGs');
-                save(fullfile(resdir,evSTAT_nm),'EventSTAT');
-                save(fullfile(resdir,epoch_nm),'EventEPOCHs');
+                save(fullfile(resdir,[evavg_nm '.mat']),'EventAVGs');
+                save(fullfile(resdir,[evSTAT_nm '.mat']),'EventSTAT');
+                save(fullfile(resdir,[epoch_nm '.mat']),'EventEPOCHs');
                 
                 
                 
             end
         end
+        toc
     end
     
     %     end
@@ -445,7 +380,8 @@ addParameter(prs,'bipol',false,@islogical);
 addParameter(prs,'measure','Pow',@ischar);
 addParameter(prs,'chan','F4',@ischar);
 addParameter(prs,'alpha',NaN,@isnumeric);
-addParameter(prs,'mcorrect','fdr',@ischar); % fdr  | none
+addParameter(prs,'mcorrect','cluster',@ischar); % fdr  | none
+addParameter(prs,'only_stoptrials',false,@islogical);
 parse(prs,sess2analyse,EventTypes,SubEventTypes,epoch_win,baseline_win,varargin{:})
 p = prs.Results;
 
@@ -463,7 +399,7 @@ end
 
 Evinxx = [];
 
-if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 
 new_sr = 50;
 new_time = epoch_win(1):1/new_sr:epoch_win(2); new_time = new_time(1:end-1);
@@ -507,18 +443,24 @@ for si = 1:sessnr
             
             
            
-            evavg_nm = [ event '_' evty '_AVGs.mat'];
-            epoch_nm = [ event '_' evty '_EPOCHs.mat'];
-            evSTAT_nm = [ event '_' evty '_STATs.mat'];
+            evavg_nm = [ event '_' evty '_AVGs'];
+            epoch_nm = [ event '_' evty '_EPOCHs'];
+            evSTAT_nm = [ event '_' evty '_STATs'];
+            
+            if p.only_stoptrials
+                evavg_nm = [evavg_nm '_only_stoptrials'];
+                epoch_nm = [epoch_nm '_only_stoptrials'];
+                evSTAT_nm = [evSTAT_nm '_only_stoptrials'];
+            end
             
             try
-                load(fullfile(resdir,evavg_nm))
-                load(fullfile(resdir,epoch_nm))
+                load(fullfile(resdir,[evavg_nm '.mat']))
+                load(fullfile(resdir,[epoch_nm '.mat']))
             catch
                 fprintf('No EventAVGs.mat\n' );
                 continue;
             end
-            load(fullfile(resdir,evSTAT_nm))
+            load(fullfile(resdir,[evSTAT_nm '.mat']))
             
             chanlabs = fieldnames(EventAVGs);
             
@@ -571,9 +513,11 @@ for si = 1:sessnr
                 if ~isnan(p.alpha) && ~isempty(p.baseline_win)
                     hold on;
                     [exactp_ersp,maskersp,alphafdr] = boostat_eeglab_J(evpowTRN(:,baslims(1):statlims(2),:),f,p.alpha,1000,false,p.mcorrect,formula,1:length(basinx));
-               
-                    
+
+                   
+                                      
                     EventSTAT.(act_chan).(basnm).p_ersp =  exactp_ersp;
+%                     EventSTAT.(act_chan).(basnm).diffmap =  diffmap;
                     EventSTAT.(act_chan).(basnm).mask_ersp =  maskersp;
                     EventSTAT.(act_chan).(basnm).alphafdr =  alphafdr;
                     EventSTAT.(act_chan).(basnm).alpha =  p.alpha;
@@ -584,8 +528,8 @@ for si = 1:sessnr
                 
                 
                 
-                save(fullfile(resdir,evavg_nm),'EventAVGs');
-                save(fullfile(resdir,evSTAT_nm),'EventSTAT');
+                save(fullfile(resdir,[evavg_nm '.mat']),'EventAVGs');
+                save(fullfile(resdir,[evSTAT_nm '.mat']),'EventSTAT');
                 
                 
                 
@@ -616,7 +560,8 @@ addRequired(prs,'baseline_win',@(x) isvector(x)| isnumeric(x));
 addParameter(prs,'stat_win',[],@(x) isvector(x)| isnumeric(x));
 addParameter(prs,'csd',false,@islogical);
 addParameter(prs,'alpha',NaN,@isnumeric);
-addParameter(prs,'mcorrect','fdr',@ischar); % fdr  | none
+addParameter(prs,'mcorrect','cluster',@ischar); % fdr  | none
+addParameter(prs,'only_stoptrials',false,@islogical);
 parse(prs,sess2analyse,EventTypes,SubEventTypes,epoch_win,baseline_win,varargin{:})
 p = prs.Results;
 
@@ -628,7 +573,7 @@ global rootdir filesdir
 
 
 
-if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 
 new_sr = 50;
 new_time = epoch_win(1):1/new_sr:epoch_win(2); new_time = new_time(1:end-1);
@@ -666,25 +611,31 @@ for si = 1:sessnr
             end
             
             
-            epoch_nm = [ event '_' evty '_EPOCHs.mat'];
-            evavg_nm = [ event '_' evty '_chan_AVGs.mat'];
-            evSTAT_nm = [ event '_' evty '_chan_STATs.mat'];
+            epoch_nm = [ event '_' evty '_EPOCHs'];
+            evavg_nm = [ event '_' evty '_chan_AVGs'];
+            evSTAT_nm = [ event '_' evty '_chan_STATs'];
+            
+            if p.only_stoptrials
+                epoch_nm = [epoch_nm '_only_stoptrials'];
+                evavg_nm = [evavg_nm '_only_stoptrials'];
+                evSTAT_nm = [evSTAT_nm '_only_stoptrials'];
+            end
             
             try
-                load(fullfile(resdir,epoch_nm))
+                load(fullfile(resdir,[epoch_nm '.mat']))
             catch
                 fprintf('No EventEPOCH.mat\n' );
                 continue;
             end
             
-            if exist(fullfile(resdir,evavg_nm))==2
-                load(fullfile(resdir,evavg_nm))
+            if exist(fullfile(resdir,[evavg_nm '.mat']))==2
+                load(fullfile(resdir,[evavg_nm '.mat']))
             else
                 EventAVGs = struct;
             end
             
-            if exist(fullfile(resdir,evSTAT_nm))==2
-                load(fullfile(resdir,evSTAT_nm))
+            if exist(fullfile(resdir,[evSTAT_nm '.mat']))==2
+                load(fullfile(resdir,[evSTAT_nm '.mat']))
             else
                 EventSTAT = struct;
             end
@@ -746,10 +697,10 @@ for si = 1:sessnr
                 hold on;
                 [exactp_ersp,maskersp,alphafdr] = boostat_eeglab_J(evpowTRN(:,baslims(1):statlims(2),:),f,p.alpha,1000,false,p.mcorrect,formula,1:length(basinx));
                 
-                
                 EventSTAT.chanmean.(basnm).p_ersp =  exactp_ersp;
+%                 EventSTAT.chanmean.(basnm).diffmap =  diffmap;
                 EventSTAT.chanmean.(basnm).mask_ersp =  maskersp;
-                EventSTAT.chanmean.(basnm).alphafdr =  alphafdr;
+                                EventSTAT.chanmean.(basnm).alphafdr =  alphafdr;
                 EventSTAT.chanmean.(basnm).alpha =  p.alpha;
                 EventSTAT.chanmean.(basnm).trialnr =  size(evpowTRN,3);
             end
@@ -758,8 +709,8 @@ for si = 1:sessnr
             
             
             
-            save(fullfile(resdir,evavg_nm),'EventAVGs');
-            save(fullfile(resdir,evSTAT_nm),'EventSTAT');
+            save(fullfile(resdir,[evavg_nm '.mat']),'EventAVGs');
+            save(fullfile(resdir,[evSTAT_nm '.mat']),'EventSTAT');
             
             
             
@@ -772,79 +723,3 @@ end
 end
 
 
-%--------------------------------------------------------------------------
-function [EEG_ep_choi] = concat_wav_pd(choi,EEG_ep,blocknr,tf_dir)
-%CONCAT_WAV_PD Wavelet transform of a single EEG data
-
-
-dbstop if error
-fprintf('Wavelet transformation...\n')
-
-
-if isempty(choi)
-    try
-    choi = {EEG_ep.chanlocs(:).labels};
-    catch
-        for i = 1:EEG_ep.nbchan
-            EEG_ep.chanlocs(i).labels = ['Ch' num2str(i)];
-        end
-        choi = {EEG_ep.chanlocs(:).labels};
-    end
-end
-
-EEG_ep_choi = pop_select(EEG_ep,'channel',choi);
-
-blocklen = ceil(size(EEG_ep_choi.data,3)/blocknr);
-
-ds = floor(linspace(1,size(EEG_ep.data,2),200));
-
-c_min = [];
-c_max = [];
-for oc = 1:EEG_ep_choi.nbchan
-    fprintf('Channel');
-    act_chan = EEG_ep_choi.chanlocs(oc).labels;
-    fprintf('%s ',act_chan);
-    
-    if exist([tf_dir filesep 'epoch_wav_ch' act_chan '_4.mat'])~=2
-        signconcat =  reshape(EEG_ep_choi.data(oc,:,:),1,[]);
-        
-        Zsign = zscore(signconcat);
-        
-        % eegwavelet function is modified to give complex wavelet coefficients as output instead of power and phase values (due to memory shortage)
-        [waveconcat,f] = eegwavelet2(Zsign,EEG_ep_choi.srate); 
-        f = f(f>0.5);
-        
-        st = 1;
-        ep_length = size(EEG_ep_choi.data,2);
-        epnr = size(EEG_ep_choi.data,3);
-        epoch_wav = nan(length(f),ep_length,epnr);
-        for eo = 1:epnr
-            try
-                epoch_wav(:,:,eo) = waveconcat(:,st:st+ep_length-1);
-            catch
-                fprintf('error');
-            end
-            st = st+ep_length;
-        end
-        
-        epoch_wavDS = epoch_wav(:,ds,:);
-        
-        % Save in blocks
-        st2 = 1;
-        for bi = 1:blocknr
-            en = st2+blocklen-1;
-            epoch_wav_bl = epoch_wavDS(:,:,st2:min(en,size(epoch_wav,3)));
-            save(fullfile(tf_dir,['epoch_wav_ch' act_chan '_' num2str(bi) '.mat']),'epoch_wav_bl');
-            
-            st2 = st2+blocklen; epoch_wav_bl = [];
-        end
-        
-        save(fullfile(tf_dir,['epoch_f_ch' act_chan '.mat']),'f');
-        
-    else
-        
-        fprintf('TF blocks done\n');
-    end
-    
-end
-end

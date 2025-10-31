@@ -56,7 +56,7 @@ end
 
 [ Pboot, ~, Pboottrials] = bootstat(P, formula, 'boottype', 'shuffle', ...
     'label', 'ERSP', 'bootside', 'both', 'naccu', naccu, ...
-    'alpha', alpha/2,'dimaccu',2,'basevect', basline_inx);
+    'alpha', alpha/2,'dimaccu',[2],'basevect', basline_inx);
 
 
 if isempty(basline_inx)
@@ -66,14 +66,16 @@ else
     Bsd = repmat(std(P(:,basline_inx,:),[],[2 3],'omitnan'),[1 size(P,2)]);
     PA = (mean(P,3) - B) ./ Bsd; % Baseline correction for each trial for statistics
 end
+
+% pboot = permute( reshape(Pboottrials,[size(P,2) ceil(naccu/size(P,2)) size(Pboottrials,2)]), [3 1 2]);
 Pboottrials = Pboottrials';
 
-
-exactp_ersp = compute_pvals(mean(P,3), Pboottrials);
-
+[exactp_ersp,~] = compute_pvals(mean(P,3), Pboottrials);
 %%
 if strcmp(mcorrect,'fdr')
     alpha2 = fdr(exactp_ersp, alpha);
+
+
 else
     alpha2 = alpha;
 end
@@ -91,7 +93,7 @@ end
 
 % reshaping data
 % -----------
-function pvals = compute_pvals(oridat, surrog, tail)
+function [pvals,surrog] = compute_pvals(oridat, surrog, tail)
 
 if nargin < 3
     tail = 'both';

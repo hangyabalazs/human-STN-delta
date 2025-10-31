@@ -93,11 +93,12 @@ addRequired(prs,'baseline_win',@isvector);
 addParameter(prs,'side','left',@(x) ischar(x)||iscell(x));
 addParameter(prs,'condition','stimoff',@(x) ischar(x)||iscell(x));
 addParameter(prs,'stat_time',[-1 1],@isvector);
+addParameter(prs,'mcorrect','cluster',@ischar);
 addParameter(prs,'csd',true,@islogical);
 addParameter(prs,'bipol',false,@islogical);
 addParameter(prs,'alphas',NaN,@(x) isnumeric(x)||isvector(x));
 addParameter(prs,'patgroup_nm',{},@iscell);
-addParameter(prs,'bypatient',true,@islogical);
+addParameter(prs,'bypatient',false,@islogical);
 addParameter(prs,'patientavg',true,@islogical);
 addParameter(prs,'ersp_freq',[1 80],@isvector);
 addParameter(prs,'subregion','all',@(x) ischar(x)||iscell(x));
@@ -106,11 +107,14 @@ addParameter(prs,'chanmean',1,@isnumeric);
 addParameter(prs,'topo_freq_nms',{'delta'},@iscell);
 addParameter(prs,'topo_freqs',[1 4],@ismatrix);
 addParameter(prs,'topobin',500,@isnumeric);
+addParameter(prs,'only_stoptrials',false,@islogical);
+addParameter(prs,'onlytopo',false,@islogical);
 parse(prs,sess2analyse,EventTypes,SubEventTypes,epoch_win,baseline_win,varargin{:})
 p = prs.Results;
 
 
 rectype = sess2analyse(1).rectype;
+rectime = sess2analyse(1).rectime;
 
 if strcmp(rectype, 'LFP')
     p.csd = false;
@@ -118,16 +122,7 @@ if strcmp(rectype, 'LFP')
 end
 
 
-    
-    
-    % Power averages across patients
-    save_avgepoch_pow2(sess2analyse,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes,...
-        'subregion',p.subregion,'close2centr',p.close2centr,'csd',p.csd,'bipol',p.bipol,'measure','Pow','alpha',p.alphas,...
-        'patgroup_nm',p.patgroup_nm, 'baseline_win',baseline_win,'stat_win',p.stat_time,...
-        'side',p.side,'condition',p.condition,'chanmean',p.chanmean);
-    
-    
-    gr_label = {};
+     gr_label = {};
     if ~isempty(p.patgroup_nm)
         for k = 1:length(p.patgroup_nm)
             gr_label{k} = [p.side '_' p.condition '_RACEfalse_'  p.patgroup_nm{k}];
@@ -136,19 +131,31 @@ end
         gr_label{1} = [p.side '_' p.condition '_RACEfalse'];
     end
     
+    if ~p.onlytopo
+        %     Power averages across patients
+        save_avgepoch_pow2(sess2analyse,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes,...
+            'subregion',p.subregion,'close2centr',p.close2centr,'csd',p.csd,'bipol',p.bipol,'measure','Pow','alpha',p.alphas,...
+            'patgroup_nm',p.patgroup_nm, 'baseline_win',baseline_win,'stat_win',p.stat_time,...
+            'side',p.side,'condition',p.condition,'chanmean',p.chanmean,'only_stoptrials',p.only_stoptrials);
+        
+        
+        
+        
+        
+        % Plot ERSP patient-by-patient & patient AVG
+        PD_ERSPs(sess2analyse,epoch_win,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes,'Subregion',p.subregion,...
+            'bypatient',p.bypatient,'patientavg',p.patientavg,'freq_range',p.ersp_freq,'time_range',p.stat_time,'chanmean',p.chanmean,...
+            'grcond_names',gr_label,'stat',true,'measure','Pow','csd',p.csd,'bipol',p.bipol,'baseline_win',baseline_win,'cLim',[-1 1],...
+            'only_stoptrials', p.only_stoptrials);
+    end
     
-    % Plot ERSP patient-by-patient & patient AVG
-    PD_ERSPs(sess2analyse,epoch_win,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes,'Subregion',p.subregion,...
-        'bypatient',p.bypatient,'patientavg',p.patientavg,'freq_range',p.ersp_freq,'time_range',p.stat_time,'chanmean',p.chanmean,...
-        'grcond_names',gr_label,'stat',true,'measure','Pow','csd',p.csd,'bipol',p.bipol,'baseline_win',baseline_win,'cLim',[-1 1]);
-    
-    
-    
-    % Topoplots for each patient (event-averages)
-    ssrt_topoplot(sess2analyse,'plot_win',p.stat_time,'topo_freq_nms',p.topo_freq_nms,'topo_freqs',p.topo_freqs,...
-        'topobin',p.topobin,'cLim',[-2 2],'individual',p.bypatient,'patavg',p.patientavg,'csd',p.csd,'measure','Pow',...
-        'stat',true,'grcond_names',gr_label,'baseline_win',baseline_win,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes);
-    
+    if strcmp(rectype, 'EEG')&&strcmp(rectime, 'postop')
+        % Topoplots for each patient (event-averages)
+        ssrt_topoplot(sess2analyse,'plot_win',p.stat_time,'topo_freq_nms',p.topo_freq_nms,'topo_freqs',p.topo_freqs,...
+            'topobin',p.topobin,'cLim',[-2 2],'individual',p.bypatient,'patavg',p.patientavg,'csd',p.csd,'measure','Pow',...
+            'stat',true,'grcond_names',gr_label,'baseline_win',baseline_win,'EventTypes',EventTypes,'SubEventTypes',SubEventTypes,...
+            'only_stoptrials', p.only_stoptrials);
+    end
     
    
 end
@@ -184,7 +191,7 @@ addParameter(prs,'grcond_names',{'left_stimoff','right_stimoff'},@iscell); % {'l
 addParameter(prs,'stat',false,@islogical);
 addParameter(prs,'measure','Pow',@ischar);
 addParameter(prs,'cLim',[],@(x) isnumeric(x)|isvector(x));
-
+addParameter(prs,'only_stoptrials',false,@islogical);
 
 parse(prs,sess2analyse,epoch_win,varargin{:});
 p = prs.Results;
@@ -245,7 +252,7 @@ else
 end
 
 
-if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 
 
 
@@ -304,17 +311,21 @@ if p.bypatient
                 
                 if strcmp(rectype,'LFP') && p.chanmean==1
                     
-                    evavg_nm = [ event '_' subevent '_chan_AVGs.mat'];
-                    evSTAT_nm = [ event '_' subevent '_chan_STATs.mat'];
+                    evavg_nm = [ event '_' subevent '_chan_AVGs'];
+                    evSTAT_nm = [ event '_' subevent '_chan_STATs'];
                 else
-                    evavg_nm = [ event '_' subevent '_AVGs.mat'];
-                    evSTAT_nm = [ event '_' subevent '_STATs.mat'];
+                    evavg_nm = [ event '_' subevent '_AVGs'];
+                    evSTAT_nm = [ event '_' subevent '_STATs'];
                 end
                 
+                if p.only_stoptrials && subei ==3
+                    evavg_nm = [evavg_nm '_only_stoptrials'];
+                    evSTAT_nm = [evSTAT_nm '_only_stoptrials'];
+                end
                 
                 try
-                    load(fullfile(resdir,evavg_nm))
-                    load(fullfile(resdir,evSTAT_nm))
+                    load(fullfile(resdir,[evavg_nm '.mat']))
+                    load(fullfile(resdir,[evSTAT_nm '.mat']))
                 catch
                     fprintf('No files %s %s %s %s %s \n', patnm, side, tag, event, subevent)
                     continue;
@@ -357,11 +368,19 @@ if p.bypatient
                     fig = figure;
                     [~,~,~] = spectr_fig(P,f(f_ind),new_sr,p.freq_range(2),p.freq_range(1),timerang, [],0, p.cLim);
                     
-                    load(fullfile(resdir,evSTAT_nm))
+                    load(fullfile(resdir,[evSTAT_nm '.mat']))
+                    
+                    
+                    
                     if p.stat
                         mask_ersp = EventSTAT.(act_chan).(basnm2).mask_ersp;
+                        z_ersp = norminv(EventSTAT.(act_chan).(basnm2).p_ersp(f_ind,newtinx));
                         hold on;
-                        contour(mask_ersp(f_ind,newtinx),'Color','white');
+                        mask = mask_ersp(f_ind,newtinx); 
+                        ff = f(f_ind);
+                        
+                        bootstatFDR_clustercorr(z_ersp,mask,ff,rectime,rectype,act_chan)
+%                         contour(mask_ersp(f_ind,newtinx),'Color','white');
                     end
                     
                     
@@ -378,6 +397,9 @@ if p.bypatient
                     % Save figure
                     fnm = [resdir_fig filesep patnm '_' side '_' tag ...
                         '_' act_chan '_' p.subregion '_FREQ' num2str(p.freq_range) '_WIN' num2str(p.time_range) '_BAS' num2str(p.baseline_win)];
+                    if p.only_stoptrials && subei==3
+                        fnm = [fnm '_only_stoptrials'];
+                    end
                     saveas(fig, [ fnm '.png']);
                     saveas(fig,[ fnm  '.fig']);
                     close(fig)
@@ -472,18 +494,30 @@ if p.patientavg
                     
                     
                     avgepoch_pow = [];
-                    load(fullfile(resdir_chan,[event '_' subevent '_' avgnm '_pow_' grnm  num2str(p.baseline_win) '.mat']));
-                    
+                    avgnm_long = fullfile(resdir_chan,[event '_' subevent '_' avgnm '_pow_' grnm  num2str(p.baseline_win) ]);
+                    statnm_long = fullfile(resdir_chan,[event '_' subevent '_' avgnm '_STAT_' grnm  num2str(p.baseline_win)]);
+                    if p.only_stoptrials && sei==3
+                       avgnm_long =  [avgnm_long '_only_stoptrials'];
+                       statnm_long =  [statnm_long '_only_stoptrials'];
+                    end
+                    load([ avgnm_long '.mat']);
+                    load([ statnm_long '.mat']);
                     
                     % FIGURE
                     [~,~,~] = spectr_fig(avgepoch_pow(f_ind,newtinx),f(f_ind),new_sr,p.freq_range(2),p.freq_range(1),p.time_range,[], 0,p.cLim);
                     
                     
-                    load(fullfile(resdir_chan,[event '_' subevent '_' avgnm '_STAT_' grnm  num2str(p.baseline_win) '.mat']));
+                    
+            
                     if p.stat
                         mask_ersp = avgepoch_STAT.mask_ersp;
+                        z_ersp = norminv(avgepoch_STAT.p_ersp);
                         hold on;
-                        contour(mask_ersp(f_ind,newtinx),'Color','white');
+                        zmap_p = z_ersp(f_ind,newtinx); 
+                        mask = mask_ersp(f_ind,newtinx); 
+                        ff = f(f_ind);
+                        bootstatFDR_clustercorr(zmap_p,mask,ff,rectime,rectype,act_chan)
+%                         contour(mask_ersp(f_ind,newtinx),'Color','white');
                     end
                     
                     % Title
@@ -496,9 +530,13 @@ if p.patientavg
                     
                     % Save figure
                     fnm = [resdir_fig filesep 'PatientAVG_' act_chan '_' p.subregion '_' num2str(p.freq_range)  '_' num2str(p.time_range) '_' num2str(p.baseline_win)];
+                    
+                    if p.only_stoptrials && sei==3
+                        fnm =  [fnm '_only_stoptrials'];
+                    end
+                    
                     saveas(fig, [ fnm '.png']);
                     saveas(fig,[ fnm '.fig']);
-                    saveas(fig,[ fnm '.pdf']);
                     close(fig)
                     
                     
@@ -540,9 +578,10 @@ addParameter(prs,'maxpower','all',@ischar); % 'all' | 'beta'
 addParameter(prs,'iscell',[],@(x) isvector(x)||islogical(x));
 addParameter(prs,'measure','Pow',@ischar);
 addParameter(prs,'alpha',NaN,@isnumeric);
-addParameter(prs,'mcorrect','fdr',@ischar); % 'fdr' | 'none'
+addParameter(prs,'mcorrect','cluster',@ischar); % 'cluster' | 'fdr' | 'none'
 addParameter(prs,'baseline_win',[],@(x) isvector(x)||isnumeric(x));
 addParameter(prs,'stat_win',[],@(x) isvector(x)||islogical(x));
+addParameter(prs,'only_stoptrials',false,@islogical);
 
 
 
@@ -605,11 +644,20 @@ elseif strcmp(rectype,'LFP') % choose channels for averaging: ...
     end
 end
 
+
+if ~isnan(p.alpha) && ~contains(p.mcorrect,{'none','cluster'});
+    fprintf('Wrong method for multiple correction? None/ cluster or change the stat test used.\n');
+    keyboard;
+end
 %% Select patient group
 
 % Select sessions according to side
-sidinx = ismember({sess2analyse.side},p.side);
-s2a_new = sess2analyse(sidinx);
+if ~contains(p.side,'both')
+    sidinx = ismember({sess2analyse.side},p.side);
+    s2a_new = sess2analyse(sidinx);
+else
+    s2a_new = sess2analyse;
+end
 
 
 % Select sessions according to condition
@@ -638,24 +686,29 @@ if ~isempty(p.baseline_win)
     
     baslims = dsearchn(times',p.baseline_win');
     basinx = baslims(1):baslims(2);
-    %     statlims = dsearchn(times',p.stat_win');
-    %     statlims = statlims-baslims(1)+1;
-    %     basnm = ['BASLims' num2str(baslims(1)) '_' num2str(baslims(2))];
+    
+    statlims = dsearchn(times',p.stat_win');
+    statlims= statlims-baslims(1)+1;
+% basnm = ['BASLims' num2str(baslims(1)) '_' num2str(baslims(2))];
+basnm = 'TRN_AVG';
 else
     basinx = 1:length(times);
+    
+    statlims = dsearchn(times',p.stat_win');
 end
 
 
 load(fullfile(rootdir,'freq_components.mat'));
 %%
-if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(p.SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 
 for k = 1:length(s2a_groups)
     gr_label = group_lab{k};
     
-    
+
     % Collect averages for each patient
-    AP = collect_avgs(s2a_groups{k},p.csd,p.bipol,p.EventTypes,p.SubEventTypes,choi,p.subregion,p.close2centr,p.maxpower,p.chanmean,'TRN_AVG');
+
+    AP= collect_avgs(s2a_groups{k},p.csd,p.bipol,p.EventTypes,p.SubEventTypes,choi,p.subregion,p.close2centr,p.maxpower,p.chanmean,basnm,p.only_stoptrials);
     
     for ci = 1:length(choi)
         
@@ -689,39 +742,54 @@ for k = 1:length(s2a_groups)
                 
                 if ~isempty(p.baseline_win)
                     evg_epochs2 = evg_epochs(:,baslims(1):end,:);
-                    
+                    evg_epochs2 = evg_epochs2(:,statlims(1):statlims(2),:);
+                    %
                     B2 = repmat(nanmean(evg_epochs(:,basinx,:),[2 3]),[1 size(evg_epochs2,2)]);
                     Bsd2 = repmat(std(evg_epochs(:,basinx,:),[],[2 3],'omitnan'),[1 size(evg_epochs2,2)]);
                     
-                    
-                    
                     B_AVG2 = (nanmean(evg_epochs2,3)- B2)./ Bsd2; % Baseline correction for trial average for visualization
                     avgepoch_pow = B_AVG2;
+                    
+%                     evg_epochs2 =   evg_epochs(:,statlims(1):statlims(2),:) ;
+%                     avgepoch_pow = mean(evg_epochs2,3);
                 else
-                    evg_epochs2 = evg_epochs;
-                    avgepoch_pow = mean(evg_epochs,3);
+                    evg_epochs2 = evg_epochs(:,statlims(1):statlims(2),:);;
+                    avgepoch_pow = mean(evg_epochs2,3);
                 end
-                
                 
                 % Stat
                 
                 if ~isnan(p.alpha)
                     hold on;
-                    [exactp_ersp,maskersp,alphafdr] = boostat_eeglab_J(evg_epochs2,f,p.alpha,1000,false,p.mcorrect,[],1:length(basinx));
+                     [zmap_cl_p,maskersp,alphafdr] = boostat_eeglab_J(evg_epochs2,f,p.alpha,1000,false,p.mcorrect,[],1:length(basinx));
                     
-                    avgepoch_STAT.p_ersp =  exactp_ersp;
+%                     data = permute(evg_epochs2,[3 1 2]);
+%                     zmap_cl_p = nan(size(data,[2 3]));
+%                     
+%                         [zmap_cl_p, ~, ~,diffmap] = bas_permstat_pd(data(:,frinx,:),1:length(basinx),500,p.alpha,p.alpha,p.mcorrect);
+%                      [diffmap,maskersp,zmap_cl_p] = fieltrip_baspermstat(data,1:length(basinx),f);
+%                    
+%                     maskersp = zmap_cl_p~=0;
+
+                    avgepoch_STAT.p_ersp =  zmap_cl_p;
+%                     avgepoch_STAT.diffmap =  diffmap;
                     avgepoch_STAT.mask_ersp =  maskersp;
-                    avgepoch_STAT.alphafdr =  alphafdr;
+%                     avgepoch_STAT.alphafdr =  alphafdr;
                     avgepoch_STAT.alpha =  p.alpha;
                     avgepoch_STAT.patientnr =  size(evg_epochs,3);
                 end
                 
                 
                 
+                fnm_pow = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_pow_' gr_label num2str(p.baseline_win)]);
+                fnm_stat = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' gr_label num2str(p.baseline_win)]);
                 
-                
-                save(fullfile(resdir_chan,[event '_' subevent '_' res_nm '_pow_' gr_label num2str(p.baseline_win) '.mat']),'avgepoch_pow');
-                save(fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' gr_label num2str(p.baseline_win) '.mat']),'avgepoch_STAT');
+                if p.only_stoptrials && ii==3
+                    fnm_pow = [fnm_pow '_only_stoptrials'];
+                    fnm_stat = [fnm_stat '_only_stoptrials'];
+                end
+                save([ fnm_pow '.mat'],'avgepoch_pow');
+                save([ fnm_stat '.mat'],'avgepoch_STAT');
                 avgepoch_pow = []; avgepoch_STAT = struct;
             end
             
@@ -735,10 +803,10 @@ end
 
 
 %--------------------------------------------------------------------------
-function AP = collect_avgs(sess2analyse,csd,bipol,EventTypes,SubEventTypes,choi,subregion,close2centr,maxpower,chanmean,basnm)
+function AP = collect_avgs(sess2analyse,csd,bipol,EventTypes,SubEventTypes,choi,subregion,close2centr,maxpower,chanmean,basnm,only_stoptrials)
 
 global rootdir
-if isempty(SubEventTypes); subnr = 3; else; subnr = 1:3; end;
+if isempty(SubEventTypes); subnr = 3; else; subnr = 1:2; end;
 rectype = sess2analyse(1).rectype;
 
 
@@ -777,13 +845,17 @@ for snr = 1:length(sess2analyse)
             end
             
             if strcmp(rectype,'LFP') && chanmean==1
-                evavg_nm = [ event '_' subevent '_chan_AVGs.mat'];
+                evavg_nm = [ event '_' subevent '_chan_AVGs'];
             else
-                evavg_nm = [ event '_' subevent '_AVGs.mat'];
+                evavg_nm = [ event '_' subevent '_AVGs'];
+            end
+            
+            if only_stoptrials && subei==3
+                evavg_nm = [evavg_nm '_only_stoptrials'];
             end
             
             try
-                load(fullfile(resdir,evavg_nm));
+                load(fullfile(resdir,[evavg_nm '.mat'] ));
                 
             catch
                 fprintf('No files %s %s %s.\n', patnm,side, tag);
@@ -813,12 +885,15 @@ for snr = 1:length(sess2analyse)
                 if ~strcmp(rectype,'LFP') || (strcmp(rectype,'LFP') && chanmean==1)
                     
                     
-                    
+                try
                     if isempty(AP.(act_chan).AvgPow.(event).(subevent))
                         AP.(act_chan).AvgPow.(event).(subevent){1} = EventAVGs.(act_chan).(basnm);
                     else
                         AP.(act_chan).AvgPow.(event).(subevent){end+1} = EventAVGs.(act_chan).(basnm);
                     end
+                catch
+                    disp('')
+                end
                     
                     
                     
@@ -929,6 +1004,7 @@ addParameter(prs,'patavg',true,@islogical);
 addParameter(prs,'grcond_names',{'left_stimoff'},@iscell);
 addParameter(prs,'stat',true,@islogical);
 addParameter(prs,'baseline_win',[-1 -.5],@(x) isvector(x)|isnumeric(x));
+addParameter(prs,'only_stoptrials',false,@islogical);
 parse(prs,sess2analyse,varargin{:});
 p = prs.Results;
 
@@ -1006,15 +1082,20 @@ if p.individual
                 evavg_nm = [ event '_' subevent '_AVGs.mat'];
                 evSTAT_nm = [ event '_' subevent '_STATs.mat'];
                 
+                if p.only_stoptrials && sei==3
+                    evavg_nm = [evavg_nm '_only_stoptrials'];
+                    evSTAT_nm = [evSTAT_nm '_only_stoptrials'];
+                end
+                
                 try
-                    load(fullfile(resdir,evavg_nm));
+                    load(fullfile(resdir,[evavg_nm '.mat']));
                 catch
                     fprintf('No EventAVG for %s\n',curr_resdir)
                     continue
                 end
                 
                 if p.stat
-                    load(fullfile(resdir,evSTAT_nm));
+                    load(fullfile(resdir,[evSTAT_nm '.mat']));
                 end
                 
                 % Load patient data
@@ -1066,8 +1147,13 @@ if p.individual
                     if ~isdir(topodir); mkdir(topodir); end;
                     
                     % TOPOPLOT
+                    savetit = [patnm '_' side '_' condition];
+                    if p.only_stoptrials && sei==3
+                        savetit = [savetit '_only_stoptrials'];
+                    end
+                    
                     topoplot_fig(alldat,chanlocs,ds_sr,p.plot_win,p.topobin,...
-                        p.cLim,topodir,mask_ersp_datwin,suptit,[patnm '_' side '_' condition])
+                        p.cLim,topodir,mask_ersp_datwin,suptit,savetit)
                     
                 end
             end
@@ -1100,11 +1186,15 @@ if p.patavg
                     act_chan = chanlabels{ch};
                     resdir_chan = fullfile(tfdir,act_chan);
                     
+                    long_avgnm = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_pow_' grnm  num2str(p.baseline_win)]);
                     
-                    
+                    if p.only_stoptrials && sei==3
+                        long_avgnm = [long_avgnm '_only_stoptrials'];
+                    end
+                
                     try
                         
-                        load(fullfile(resdir_chan,[event '_' subevent '_' res_nm '_pow_' grnm  num2str(p.baseline_win) '.mat']));
+                        load([long_avgnm '.mat']);
                     catch
                         fprintf('No PatAVG for %s\n',resdir_chan);
                         continue
@@ -1143,8 +1233,12 @@ if p.patavg
                             act_chan = chanlabels{ch};
                             resdir_chan = fullfile(tfdir,act_chan);
                             
-                            statfnm = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' grnm num2str(p.baseline_win) '.mat']);
-                            load(statfnm);
+                            statfnm = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' grnm num2str(p.baseline_win) ]);
+                            
+                            if p.only_stoptrials && sei==3
+                                statfnm = [statfnm '_only_stoptrials'];
+                            end
+                            load([statfnm '.mat']);
                             
                             
                             mask_ersp{ch} = avgepoch_STAT.mask_ersp;
@@ -1171,8 +1265,11 @@ if p.patavg
                             
                             act_chan = chanlabels{ch};
                             resdir_chan = fullfile(tfdir,act_chan);
-                            statfnm = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' grnm num2str(p.baseline_win) '.mat']);
-                            load(statfnm);
+                            statfnm = fullfile(resdir_chan,[event '_' subevent '_' res_nm '_STAT_' grnm num2str(p.baseline_win) ]);
+                             if p.only_stoptrials && sei==3
+                                statfnm = [statfnm '_only_stoptrials'];
+                            end
+                            load([statfnm '.mat']);
                             
                             patnr(ch) = avgepoch_STAT.patientnr;
                         end
@@ -1191,9 +1288,12 @@ if p.patavg
                     
                     % TOPOPLOT
                     
-                    
+                    savetit = grnm;
+                    if p.only_stoptrials && sei==3
+                        savetit = [savetit '_only_stoptrials'];
+                    end
                     topoplot_fig(alldat,chanlocs,ds_sr,p.plot_win,p.topobin,...
-                        p.cLim,topodir,mask_ersp_datwin,suptit,grnm)
+                        p.cLim,topodir,mask_ersp_datwin,suptit,savetit)
                 end
             end
         end

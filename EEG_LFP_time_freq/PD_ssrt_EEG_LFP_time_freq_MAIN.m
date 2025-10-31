@@ -1,11 +1,7 @@
-function PD_ssrt_EEG_LFP_time_freq_MAIN(conditions, epoch_win,baseline_win, EventTypes,SubEventTypes)
+function PD_ssrt_EEG_LFP_time_freq_MAIN(epoch_win,baseline_win, EventTypes,SubEventTypes)
 % PD_SSRT_BEHAV_MAIN Main function for EEG and LFP time-frequency analysis
 %
 % Input parameters:
-%       CONDITIONS      Nx2 cell array of task conditions to compare
-%               -first column corresponds to recording time, second column to
-%               DBS stimulation condition
-%               -ex.:{'preop','stimoff';'intraop','stimoff';'postop','stimoff';'postop','stimon'};
 %     EPOCH_WIN         1x2 vector, time window relative to event timestamp in sec, for data epoching (ex: [-2 2])
 %
 %     BASELINE_WIN       1x2 vector, time window relative to event timestamp in sec, for baseline correction
@@ -27,8 +23,8 @@ function PD_ssrt_EEG_LFP_time_freq_MAIN(conditions, epoch_win,baseline_win, Even
 
 global filesdir
 
+% tic
 % Parameters
-condnr = size(conditions,1);
 alphas = 0.05;
 choi = {};
 stat_time = [-1 1];
@@ -37,18 +33,19 @@ stat_time = [-1 1];
 subregion = 'all'; % 'all' | 'Motor' | 'Limbic' | 'Associative'
 chanmean = 1;
 
-topo_freq_nms = {'delta'};
-topo_freqs = [1 4];
+topo_freq_nms = {'high_delta'}; % {'high_delta'} | {'beta'};
+topo_freqs =  [1 4]; %[1 4] | [13 30];
 topobin = 500;
 
-for rT = 1:3
+%%
+for rT = [1, 3]
     switch rT
         case 1;
             rectype  = 'EEG';  rectime = 'postop';
             csd = true;    bipol = false; condi = 'bothcond'; cnr = 2;
         case 2;
             rectype  = 'EEG';
-            csd = false; bipol = true;
+            csd = false; bipol = false;
             rectime = 'intraop'; condi = 'stimoff'; cnr = 1;
         case 3;
             rectype = 'LFP';
@@ -60,52 +57,124 @@ for rT = 1:3
     sess2analyse = getdata2analyse(filesdir, 'rectype',rectype,...
         'rectime',rectime,'patients', 'allpatients', 'side','bothside', 'condition',condi);
     
+    %%
+%     % Time-frequency decomposition (wavelet transformation)
+%     PD_wav(sess2analyse,{},'csd',csd,'bipol',bipol); % wavelet of epochs(epochs concatenated)
     
-    % Time-frequency decomposition
     
+    % Preprocess TF data
     time_freq_patients(sess2analyse,EventTypes,SubEventTypes,epoch_win,baseline_win,...
-        'stat_time',stat_time,'csd',csd,'bipol',bipol,'alpha',alphas)
+        'stat_time',stat_time,'csd',csd,'bipol',bipol,'alpha',.05)
     
-    % ERSP plots
-    for si = 1:2
-        switch si; case 1; side = 'left'; case 2; side = 'right'; end;
+    
+    if ismember('StimulusOn',EventTypes)
         
         
+        time_freq_patients(sess2analyse,EventTypes,{},epoch_win,baseline_win,...
+            'stat_time',stat_time,'csd',csd,'bipol',bipol,'alpha',[NaN],'only_stoptrials',true);
         
+    
+        time_freq_patients(sess2analyse,{'StimulusOn'},{'Ord','RevSkip'},epoch_win,baseline_win,...
+        'stat_time',stat_time,'csd',csd,'bipol',bipol,'alpha',alphas)
+    end
+
+    %% ERSP plots
+%     for si = 2
+%         switch si; case 1; side = 'left'; case 2; side = 'right'; end;
+        
+        
+        side = 'left';
         for ci = 1:cnr
+            %%
             switch ci; case 1; tag = 'stimoff'; case 2; tag = 'stimon'; end
                   
-            sess2analyse_s = sess2analyse(ismember({sess2analyse.side},side));
-            sess2analyse_sc = sess2analyse_s(ismember({sess2analyse_s.tag},tag));
+%             sess2analyse_s = sess2analyse(ismember({sess2analyse.side},side));
+%             sess2analyse_sc = sess2analyse_s(ismember({sess2analyse_s.tag},tag));
+            sess2analyse_sc = sess2analyse(ismember({sess2analyse.tag},tag));
             
-            ERSP_plot_stat(sess2analyse_sc,EventTypes,SubEventTypes, epoch_win,baseline_win,...
-                'subregion',subregion,'csd',csd,'bipol',bipol,'alpha',alphas,'stat_time',stat_time,...
+            arrgs= {epoch_win,baseline_win,...
+                'subregion',subregion,'csd',csd,'bipol',bipol,...
+                'alpha',alphas,'stat_time',stat_time,'mcorrect','cluster',...
                 'side',side,'condition',tag,'chanmean',chanmean,...
-                'topo_freq_nms',topo_freq_nms,'topo_freqs',topo_freqs,'topobin',topobin);
+                'topo_freq_nms',topo_freq_nms,'topo_freqs',topo_freqs,'topobin',topobin,...
+                'onlytopo',false};
+            
+            % No partitioning
+            ERSP_plot_stat(sess2analyse_sc,EventTypes,{}, arrgs{:});
+             
+%             % Stop Partition
+            ERSP_plot_stat(sess2analyse_sc,EventTypes,SubEventTypes, arrgs{:});
+%             
+%             % Cue pair Partition
+%             if ismember('StimulusOn',EventTypes)
+%                 %%
+%                 ERSP_plot_stat(sess2analyse_sc,{'StimulusOn'},{}, arrgs{:},'only_stoptrials',true);
+% %                 
+% %                 ERSP_plot_stat(sess2analyse_sc,{'StimulusOn'},{'Ord','RevSkip'}, arrgs{:});
+%             end
+    
             
         end
         
         
-    end
+%     end
     
     
-    
-    % STAT
+    %% STAT
     if rT==1
         groups2comp_labels = {'conditions','partitions'};
     else
         groups2comp_labels = {'partitions'};
     end
     
-    for si = 1:2
+    
+    for si = 1
         switch si; case 1; side = 'left'; case 2; side = 'right'; end;
         sess2analyse_s = sess2analyse(ismember({sess2analyse.side},side));
         
         
         PD_eeg_stats(sess2analyse_s,EventTypes,SubEventTypes,groups2comp_labels,...
-            'side',side,'csd',csd,'bipol',bipol,'fr_names',topo_freq_nms, 'freq_bands',topo_freqs);
+            'side',side,'csd',csd,'bipol',bipol,'fr_names',topo_freq_nms, 'freq_bands',topo_freqs,'what2run',{'ersp'});
+        
+       %%
+        if ismember('StimulusOn',EventTypes)
+             %%
+             groups2comp_labels = {'partitions'};
+
+            for ci = 1:cnr
+                switch ci; case 1; tag = 'stimoff'; case 2; tag = 'stimon'; end
+                
+                %             sess2analyse_s = sess2analyse(ismember({sess2analyse.side},side));
+                %             sess2analyse_sc = sess2analyse_s(ismember({sess2analyse_s.tag},tag));
+                sess2analyse_sc = sess2analyse(ismember({sess2analyse.tag},tag));
+                patgroup_nm = {};%{'RevSkip_slower'}; % {'RevSkip_slower'} | {}
+                PD_eeg_stats(sess2analyse_sc,{'StimulusOn'},{'Ord','RevSkip'},groups2comp_labels,...
+                    'side',side,'csd',csd,'bipol',bipol,'fr_names',topo_freq_nms, 'freq_bands',topo_freqs,...
+                    'patgroup_nm',patgroup_nm ,'baseline_type','common','avg_clim',[-.8 .8],'what2run',{'ersp'});
+            end
+            
+            
+        end
+        
+    end
+    %% Compare sides
+    groups2comp_labels = {'sides'};
+    
+    for ci = 1:cnr
+        switch ci; case 1; tag = 'stimoff'; case 2; tag = 'stimon'; end
+        
+        sess2analyse_c = sess2analyse(ismember({sess2analyse.tag},tag));
+        
+        
+        PD_eeg_stats(sess2analyse_c,EventTypes,SubEventTypes,groups2comp_labels,...
+            'side','both','csd',csd,'bipol',bipol,'fr_names',topo_freq_nms, 'freq_bands',topo_freqs,'what2run',{'ersp'});
+        
+        
     end
     
+    
+    
+   %%
     
     
     % Find dominant frequency band within delta range
@@ -117,5 +186,5 @@ end
 
 % Correlation map between reaction time and wavelet power coefficients
 TFpower_map_RT
-
+toc
 end
