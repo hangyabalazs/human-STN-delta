@@ -13,8 +13,8 @@ function PD_SSRT_MAIN(rootdir, filesdir)
 % Institute of Experimental Medicine, Budapest, Hungary
 % szabo.johanna@koki.hun-ren.hu
 
-
-
+%
+%%
 % Directories
 figdir_pd = fullfile(rootdir,'Figures_epoched'); if ~isfolder(figdir_pd); mkdir(figdir_pd); end;
 cell_dir = fullfile(figdir_pd,'Intraop_SP');  if ~isfolder(cell_dir); mkdir(cell_dir); end;
@@ -32,20 +32,20 @@ SubEventTypes_all = {'CueStim','StopStim';'FailedStopTrial','SuccesfulStopTrial'
 
 EventTypes = {'StimulusOn','StopSignal'};
 SubEventTypes = {'FailedStopTrial','SuccesfulStopTrial';'FailedStopTrial','SuccesfulStopTrial';};
-
+% SubEventTypes = {'Ord','RevSkip'} with EventTypes ={'StimulusOn'}
 
 task_conditions = {'preop','stimoff';'intraop','stimoff';'postop','stimoff';'postop','stimon'};
 all_groups =  {{'all'}, {'tremor-dominant','akinetic-rigid','mixed'} , {'RTdecrease','RTincrease'}};
 
-
-% Behavioural analysis 
+%%
+% Behavioural analysis 77 sec
 PD_ssrt_behav_MAIN(task_conditions, all_groups)
 
 % Preprocess EEG and LFP data
-PD_ssrt_EEG_LFP_prerocess_MAIN(task_conditions(2:end,:), epoch_win,baseline_win, EventTypes_all,SubEventTypes_all)
+PD_ssrt_EEG_LFP_prerocess_MAIN(epoch_win,baseline_win, EventTypes_all,SubEventTypes_all)
 
 % Time-frequency analysis of EEG and LFP data
-PD_ssrt_EEG_LFP_time_freq_MAIN(task_conditions(2:end,:), epoch_win,baseline_win, EventTypes,SubEventTypes)
+PD_ssrt_EEG_LFP_time_freq_MAIN(epoch_win,baseline_win, EventTypes,SubEventTypes)
 
 % Intraop EEG - LFP wavelet coherence analysis
 PD_EEG_LFP_wav_coherence_MAIN(EventTypes, SubEventTypes)
@@ -54,7 +54,9 @@ PD_EEG_LFP_wav_coherence_MAIN(EventTypes, SubEventTypes)
 PD_ssrt_unit_MAIN(EventTypes_all,EventTypes)
 
 % Coupling of unit spiking activity with LFP delta oscillation
-spike_phase_coupling_MAIN(EventTypes,SubEventTypes)
+spike_phase_coupling_MAIN(EventTypes,SubEventTypes,'LFP')
+spike_phase_coupling_MAIN(EventTypes,SubEventTypes,'EEG')
+
 
 % Comparison of patient groups (patients with reaction time increase and -decrease
 patient_groups_compare(EventTypes)
