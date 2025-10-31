@@ -299,8 +299,10 @@ if isempty(dir([curr_resdir filesep 'EEG_*_2HP.set'])) && isempty(dir([curr_resd
     
     %Load raw data
     %---------------
+    
     EEG = load_raw_data(currsess,rectype,rectime,patnm,side,condition,curr_resdir);
     global  ALLEEG CURRENTSET EEG
+    
     
     % Label events
     %--------------
@@ -329,8 +331,9 @@ if isempty(dir([curr_resdir filesep 'EEG_*_2HP.set'])) && isempty(dir([curr_resd
     end
     
     % Linenoise removal
+    %%
     [EEG Lnfilt] = rem_line_noise(EEG);
-    
+    %%
     
     % High-pass filter: dataset 1 for analyses, dataset 2 for ICA
     
@@ -658,4 +661,29 @@ function EEG_ep = substr_bas(EEG_ep,baseline_win)
 %-----------------------------------------------
 bas_fr = abs(baseline_win(1,1)) + abs(baseline_win(1,2))*EEG_ep.srate;
 EEG_ep.data = rmbase(EEG_ep.data,[],[1:bas_fr]); % dataset 1
+end
+
+
+
+
+%--------------------------------------------------------------------------
+function fnm = find_filetag(allfiles,session,tag)
+
+
+if (strcmp(session(end), 'l')||contains(session, 'left')) &&strcmp(tag, 'stimoff') %if left side - find the right marker file and behavior
+    strmk = {'01' 'stim_off' 'stimoff' 'off'}; %stim off
+elseif (strcmp(session(end), 'l')||contains(session, 'left'))&&strcmp(tag, 'stimon')
+    strmk = {'03' 'stim_on' 'stimon' 'on'}; % stim on
+elseif (strcmp(session(end), 'r')||contains(session, 'right'))&&strcmp(tag, 'stimoff') % right side
+    strmk = {'02' 'stim_off' 'stimoff' 'off'}; %stim off
+elseif (strcmp(session(end), 'r')||contains(session, 'right'))&&strcmp(tag, 'stimon') % right side
+    strmk = {'04' 'stim_on' 'stimon' 'on'}; % stim on
+end
+
+for i = 1:length(allfiles)
+    current_file = allfiles(i).name;
+    if any(cellfun(@(x) contains(current_file,x), strmk))
+        fnm = current_file;
+    end
+end
 end

@@ -37,7 +37,7 @@ for i = 1:length(EventTypes)
     Events.(EventTypes{i}) = (TE.TrialStart + TE.(EventTypes{i}))*EEG.srate;
     
     
-    for k = 1:length(Events.(EventTypes{i}))
+    for k = 1:length(Events.(EventTypes{i})) % loop over trials
         
         if isnan(Events.(EventTypes{i})(k))
             continue

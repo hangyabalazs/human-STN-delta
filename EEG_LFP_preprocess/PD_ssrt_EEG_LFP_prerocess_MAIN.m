@@ -1,4 +1,4 @@
-function PD_ssrt_EEG_LFP_prerocess_MAIN(conditions, epoch_win,baseline_win, EventTypes,SubEventTypes)
+function PD_ssrt_EEG_LFP_prerocess_MAIN(epoch_win,baseline_win, EventTypes,SubEventTypes)
 % PD_SSRT_BEHAV_MAIN Main function for EEG and LFP preprocessing 
 %
 % Input parameters:
@@ -25,23 +25,28 @@ function PD_ssrt_EEG_LFP_prerocess_MAIN(conditions, epoch_win,baseline_win, Even
 
 global filesdir
 
-condnr = size(conditions,1);
 
-for rT = 1:2
+for rT = 1:4
     switch rT
-        case 1; rectype  = 'EEG';
-        case 2; rectype = 'LFP';
+        case 1;
+            rectype  = 'EEG';  rectime = 'postop'; condi = 'stimoff'; 
+        case 2;
+            rectype  = 'EEG';  rectime = 'postop'; condi = 'stimon'; 
+        case 3;
+            rectype  = 'LFP';  rectime = 'intraop'; condi = 'stimoff'; 
+        case 4;
+            rectype  = 'EEG';  rectime = 'intraop'; condi = 'stimoff'; 
     end
     
-    for coci = 1:condnr; % loop over conditions
-        rectime = conditions{coci,1};
-        condi = conditions{coci,2};
-        
+    
+          
         sess2analyse = getdata2analyse(filesdir, 'rectype',rectype,...
             'rectime',rectime,'patients', 'allpatients', 'side','bothside', 'condition',condi);
         
         
-        preprocess_PD(sess2analyse,epoch_win,EventTypes,SubEventTypes,'epochs',baseline_win)
+        preprocess_PD(sess2analyse,epoch_win,EventTypes,SubEventTypes,'epochs',baseline_win);
+        
+        cuepair_trialtypes_2Evinx(sess2analyse,EventTypes(1));
     end
-end
+
 end
