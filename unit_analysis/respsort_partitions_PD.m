@@ -1,4 +1,4 @@
-function respsort_partitions_PD(pdcells,alignevent,partition, twinds, resdir, issave)
+function respsort_partitions_PD(pdcells,alignevent,partition, twinds, resdir, issave,excl_beforeEv)
 %RESPSORT_PARTITIONS_PD  Tests activation/ inhibition predicting the behavioral outcome
 % RESPSORT_PARTITIONS_PD(pdcells,alignevent,partition, twinds, resdir, issave)
 %       -Plots PSTHs and raster plots of partitioned trials in [-3 3] sec time window around 
@@ -44,10 +44,14 @@ numCells = length(pdcells);
 % Load CellBase
 load(getpref('cellbase','fname'),'CELLIDLIST');
 
-resdirbox = fullfile(resdir,[alignevent '_' partition(2:end)], 'boxplots');
+if isempty(excl_beforeEv)
+    resdirbox = fullfile(resdir,[alignevent '_' partition(2:end)], 'boxplots');
+    resdirps = fullfile(resdir,[alignevent '_' partition(2:end)], 'raster_psths')
+else
+    resdirbox = fullfile(resdir,[alignevent '_' partition(2:end) '_ExclBef_' excl_beforeEv], 'boxplots');
+    resdirps = fullfile(resdir,[alignevent '_' partition(2:end) '_ExclBef_' excl_beforeEv], 'raster_psths')
+end
 fastif(~isdir(resdirbox),mkdir(resdirbox),0);
-
-resdirps = fullfile(resdir,[alignevent '_' partition(2:end)], 'raster_psths')
 fastif(~isdir(resdirps),mkdir(resdirps),0);
 
 
@@ -65,7 +69,11 @@ switch alignevent
         wn = [-3 3];   % full raster window in seconds
         dt = 0.001;   % raster resolution, in seconds
         sigma = 0.02;   % controls smoothing for 'spsth'
-        bwin = [-3 -2];   % baseline window for MW-test
+        if isempty(excl_beforeEv)
+            bwin = [-3 -2];   % baseline window for MW-test
+        else
+            bwin = [-1.1 -0.1];
+        end
         
     otherwise
         error('Add parameters for other events')
@@ -101,10 +109,11 @@ for iC = 1:numCells
     end
     
     % Peri-event time histogram
-    [~, ~, ~, ~, binrast, ~] = ...
+    [~, ~, ~, ~, binrast] = ...
         ultimate_psth(cellid,'trial',alignevent,wn,...
         'dt',dt,'sigma',sigma,'parts',partition,'isadaptive',0,...
-        'maxtrialno',Inf,'baselinewin',bwin,'relative_threshold',0.1,'display',false); % calculate psth
+        'maxtrialno',Inf,'baselinewin',bwin,'relative_threshold',0.1,'display',false,...
+        'first_event',excl_beforeEv); % calculate psth
     
     
     viewcell2b(cellid,'TriggerName',alignevent,'SortEvent','TrialStart','sigma',sigma,...
@@ -123,7 +132,7 @@ for iC = 1:numCells
         
         % Add propoerty for grouping
         if iC==1
-            propname_stat{tw} = [alignevent '_' partition(2:end) '_stat_' num2str(twin)];
+            propname_stat{tw} = ['x' alignevent '_' partition(2:end) '_stat_' num2str(twin)];
             
             if ~ismember(propname_stat{tw},listtag('prop'))
                 insertdata([CELLIDLIST' num2cell(nan(size(CELLIDLIST')))],'type','property','name',propname_stat{tw})
@@ -166,6 +175,7 @@ for iC = 1:numCells
         
         
         [H, p]= boxstat(part1_firing,part2_firing,mylabels{1}, mylabels{2}, 0.05, 'nonpaired')% statistics
+       
         
         
         pos = get(psth_ax,'Position');
@@ -191,14 +201,18 @@ for iC = 1:numCells
         elseif (p < 0.05) && (median(part1_firing)> median(part2_firing)) % Failed > Succ    
             
             st = setvalue(cellid,propname_stat{tw},1);
-        elseif p > 0.05
+        else
             
             st = setvalue(cellid,propname_stat{tw},0);  % non-responsive
         end
         
         if issave
-            fnm = fullfile(resdirbox,[cellidt '_' alignevent '_' partition(2:end) '_boxstat_' num2str(twin) '.jpg']);
-            saveas(H,fnm)
+            fnm = fullfile(resdirbox,[cellidt '_' alignevent '_' partition(2:end) '_boxstat_' num2str(twin)]);
+            if ~isempty(excl_beforeEv)
+                fnm = [fnm '_ExclBef_' excl_beforeEv];
+            end
+            saveas(H,[fnm '.jpg'])
+            saveas(H,[fnm '.fig'])
             close(H)
         end
         
@@ -209,10 +223,12 @@ for iC = 1:numCells
     
     if issave
         
-        fnmp = fullfile(resdirps,[cellidt '_' alignevent '_' partition(2:end) '_psth.jpg']);
-        saveas(psth_fig,fnmp)
-        fnmp2 = fullfile(resdirps,[cellidt '_' alignevent '_' partition(2:end) '_psth.fig']);
-        saveas(psth_fig,fnmp2)
+        fnmp = fullfile(resdirps,[cellidt '_' alignevent '_' partition(2:end) '_psth']);
+        if ~isempty(excl_beforeEv)
+            fnmp = [fnmp '_ExclBef_' excl_beforeEv];
+        end
+        saveas(psth_fig,[fnmp '.fig'])
+        saveas(psth_fig,[fnmp '.jpg'])
         
         close(psth_fig)
     end

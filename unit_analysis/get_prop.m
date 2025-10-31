@@ -47,6 +47,9 @@ function [props, cellids2] = get_prop(prop,cellids,varargin)
 %                           channels
 %                    true | false (default: true)
 %
+%               'plot_win'  1x2 vector, time window relative to event timestamp in
+%                       sec, to use for SPC calculation (def. value: [-1.5 1.5])
+%
 %        Relevant only when prop. is responsive/predictive unit-related:
 % 
 %               'sigma'     smoothing parameter of PSTHs (default value: 0.01)
@@ -86,6 +89,7 @@ addParameter(prs,'downsamp','no',@ischar)
 addParameter(prs,'rectype','LFP',@ischar)
 addParameter(prs,'fr_band','delta',@ischar)
 addParameter(prs,'chanmean',true,@islogical)
+addParameter(prs,'plot_win',[-1.5 1.5],@isvector)
 addParameter(prs,'sigma',0.01,@isnumeric)
 addParameter(prs,'test_win',[0 1],@isvector);
 addParameter(prs,'resptype',{'activation'},@(x) iscell(x));
@@ -96,7 +100,7 @@ p = prs.Results;
 global rootdir cell_dir
 
 cellids2 = p.cellids;
-
+loadcb
 if strcmp(lower(p.prop),'bursting')
     props = getvalue('BursIndex',p.cellids);
     
@@ -105,7 +109,7 @@ elseif contains(p.prop,'PC');
     
     props = [];
     for evi = 1:size(p.Events2Align,2)
-        [MRLs, Ps, FTM] = get_PCvalues(p.cellids,p.Events2Align(:,evi),p.fr_band,p.rectype,p.win,p.downsamp,p.chanmean);
+        [MRLs, Ps, FTM] = get_PCvalues(p.cellids,p.Events2Align(:,evi),p.fr_band,p.rectype,p.win,p.downsamp,p.chanmean,p.plot_win);
         
         if contains(p.prop,'MRL')
             px = permute( MRLs,[2 1] );
@@ -169,9 +173,14 @@ elseif contains(p.prop,'STN_loc')
                      fprintf('...at the end: %d\n',props(ic));
                  else
                      props(ic) = k+0.2;
-                 end;
+                 end;       
              end
              
+         end
+         if contains(p.prop,'centr')
+             if isnan(props(ic)) % if no definite subregion (neither In nor one the Limit) was assigned for a unit, take the closest centroid
+                 [~,props(ic)] = min(dist(1:length(subreg_names)));
+             end
          end
      end
     
@@ -198,17 +207,46 @@ elseif contains(p.prop,'amplitude') || contains(p.prop,'rate')
     
 elseif contains(lower(p.prop),'resp')
     
-    test_window = [0 1];
+    statgr_dir = fullfile(cell_dir,'grouped2','psth_stat1');
+    if contains(lower(p.prop),'psth_stat')
+        load(fullfile(statgr_dir,'RespCells_psth_stat.mat'))
+    else
+        load(fullfile(statgr_dir,'RespCells.mat'))
+    end
+    
+    
     props = [];
     for evi = 1:size(p.Events2Align,2)
-        event = p.Events2Align{evi};
         
-        % Find responsive cells
-        propname_resp = [event 'psth_stat_' num2str(test_window)];
-        px = getvalue(propname_resp,p.cellids);
-        props = cat(2,props,px);
-
+        event = p.Events2Align{evi};
+        px = nan(length(p.cellids),1);
+        
+        for ci = 1:length(p.cellids)
+            act_cellid = p.cellids{ci};
+            if ismember(act_cellid,RespCells.(event).none.Activ) 
+                px(ci) = 1;
+            elseif ismember(act_cellid,RespCells.(event).none.Inhib) 
+                px(ci) = -1;
+            else
+                px(ci) = 0;
+            end
+        end
+        
     end
+    props = cat(2,props,px);
+    
+    
+%     test_window = [0 1];
+%     props = [];
+%     for evi = 1:size(p.Events2Align,2)
+%         event = p.Events2Align{evi};
+%         
+%         % Find responsive cells
+%         propname_resp = [event 'psth_stat_' num2str(test_window)];
+%         px = getvalue(propname_resp,p.cellids);
+%         props = cat(2,props,px);
+% 
+%     end
     
 elseif contains(lower(p.prop),'pred')
     
@@ -260,7 +298,14 @@ elseif  contains(lower(p.prop),'patientgroup')
     end
     
     
+elseif contains(p.prop,'SUA')
+
     
+    resdir = fullfile(cell_dir, 'L_ratio_ID');
+    load(fullfile(resdir, 'unit_types.mat'))
+    props = ismember(cellids,unit_types.SUA);
+
+
     
     
 end
@@ -456,7 +501,7 @@ end
 
 
 %--------------------------------------------------------------------------
-function [MRLs Ps FTM]= get_PCvalues(cellids,pc_event,fr_band,PCrectype,winnr,downsamp,chanmean)
+function [MRLs Ps FTM]= get_PCvalues(cellids,pc_event,fr_band,PCrectype,winnr,downsamp,chanmean,plot_win)
 
 
 
@@ -489,7 +534,7 @@ end
 
 [MRLs Ps FTM] = deal([]);
 
-plot_win = [-1.5 1.5];
+% plot_win = [-1.5 1.5];
 
 
 cellidstit = cellfun(@(x) [x(1:14) '_' x(16:end)],cellids,'UniformOutput',false);

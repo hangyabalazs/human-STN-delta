@@ -1,4 +1,4 @@
-function EvsI_avg_psth(pdcells,propname,alignevent,condition,isplot)
+function EvsI_avg_psth(pdcells,propname,alignevent,condition,isplot,varargin)
 %EVSI_AVG_PSTH  Average PSTHs, PSTH maps and pie charts
 %   EVSI_AVG_PSTH(pdcells,propname,alignevent,condition,isplot)
 %     Selects units with significant acitvation/ inhibition (see RESPONSESORTER_PD) to ALIGNEVENT.
@@ -32,6 +32,26 @@ function EvsI_avg_psth(pdcells,propname,alignevent,condition,isplot)
 dbstop if error
 
 global cell_dir group_dir
+
+if nargin<6
+    excl_beforeEv =[];
+else
+    excl_beforeEv = varargin{1};
+end
+
+if nargin<7
+    save_RespCells =false;
+else
+    save_RespCells = varargin{2};
+end
+
+if nargin<8
+    savetit ='';
+else
+    savetit =varargin{3};
+end
+
+
 numCells = length(pdcells);
 
 propnames = listtag('prop');
@@ -39,8 +59,9 @@ propnames = listtag('prop');
 
 group_ev_dir = fullfile(group_dir,alignevent); fastif(~isdir(group_ev_dir),mkdir(group_ev_dir),0);
 
+
 try
-    load(fullfile(group_dir,'RespCells.mat'));
+    load(fullfile(group_dir,['RespCells' savetit '.mat']));
 catch
     RespCells = struct;
 end
@@ -52,9 +73,7 @@ else
     cnr = 1;
 end
 
-if ~iscell(propname)
-    propname = {propname};
-end
+
 
 switch alignevent
     case 'StimulusOn'
@@ -62,7 +81,11 @@ switch alignevent
         bwin = [-2.5 -1];
     case 'StopSignal'
         colors = [0.8500, 0.3250, 0.0980; 0.9290, 0.6940, 0.1250];
-        bwin = [-3 -1.5];
+        if isempty(excl_beforeEv)
+            bwin = [-3 -1.5];   % baseline window for MW-test
+        else
+            bwin = [-1.1 -0.1];
+        end
     case 'KeyPress1'
         colors = [0.4940, 0.1840, 0.5560; 0.75, 0, 0.75];
         bwin = [-3 -1.5];
@@ -72,11 +95,22 @@ switch alignevent
 end
 
 % Get results of responsiveness from CellBase
-propnm = propnames(cellfun(@(x) (contains(x,alignevent) & contains(x,propname{1})),propnames));
-resp_values = cell2mat(cellfun(@(x) getvalue(x,pdcells),propnm,'UniformOutput',false));
-
-cellidx1 = find(resp_values==1); % activated
-cellidx2 = find(resp_values==-1); % inhibited cells
+if save_RespCells
+    if ~iscell(propname)
+        propname = {propname};
+    end
+    propnm = propnames(cellfun(@(x) (contains(x,alignevent) & contains(x,propname{1})),propnames));
+    resp_values = cell2mat(cellfun(@(x) getvalue(x,pdcells),propnm,'UniformOutput',false));
+    
+    cellidx1 = find(resp_values==1); % activated
+    cellidx2 = find(resp_values==-1); % inhibited cells
+else
+    cellids1 = RespCells.(alignevent).none.Activ;
+    cellids2 =  RespCells.(alignevent).none.Inhib;
+    
+    cellidx1 = find(ismember(pdcells,cellids1));
+    cellidx2 = find(ismember(pdcells,cellids2));
+end
 
 
 
@@ -103,8 +137,11 @@ for coi = 1:cnr
     
     cellnrAll = length(cond_cellidx);
     
+    
     RespCells.(alignevent).(cond).Activ = cellids1;
     RespCells.(alignevent).(cond).Inhib = cellids2;
+    
+        
     
     
     
@@ -130,7 +167,7 @@ for coi = 1:cnr
             set(Ha,'Visible','off');
             [psth_k] = norm_psth_map1(cellids_k,resptypes{respk},alignevent,...
                 'baseline','indiv','basl_psth',{},'bwin',bwin, 'parts','all','cLim',[-6 6],...
-                'bindex',bindex_k,'isfig',true);
+                'bindex',bindex_k,'isfig',true,'excl_beforeEv',excl_beforeEv);
             
             
             
@@ -144,12 +181,15 @@ for coi = 1:cnr
             switch respk;
                 case 1
                     psth_R1 = psth_k;
-                    fnm = fullfile(group_ev_dir1,[cond '_' alignevent '_active']);   % sorted normalized PSTHs
+                    fnm = fullfile(group_ev_dir1,[cond '_' alignevent '_active' savetit]);   % sorted normalized PSTHs
                 case 2
                     psth_R2 = psth_k;
-                    fnm = fullfile(group_ev_dir1,[cond '_' alignevent '_inhib']);   % sorted normalized PSTHs
+                    fnm = fullfile(group_ev_dir1,[cond '_' alignevent '_inhib' savetit]);   % sorted normalized PSTHs
             end
             
+            if ~isempty(excl_beforeEv)
+                fnm = [fnm '_ExcBef_' excl_beforeEv];
+            end
             saveas(Ha,[fnm '.jpg']);
 %             saveas(Ha,[fnm '.pdf']);
             saveas(Ha,[fnm '.fig']);
@@ -158,7 +198,11 @@ for coi = 1:cnr
         end
         
         % Save normalized PSTHs
-        fnm3 = fullfile(group_ev_dir1,[cond '_' alignevent '_normPSTHs.mat']);   % full PSTH matrix
+        fnm3 = fullfile(group_ev_dir1,[cond '_' alignevent '_normPSTHs' savetit '.mat']);   % full PSTH matrix
+        
+        if ~isempty(excl_beforeEv)
+            fnm3 = [fnm3 '_ExcBef_' excl_beforeEv];
+        end
         R = [{psth_R1},{psth_R2}];
         save(fnm3,'R');
         
@@ -206,7 +250,9 @@ for coi = 1:cnr
     end
     
 end
-save(fullfile(group_dir,'RespCells.mat'),'RespCells');
+if save_RespCells
+    save(fullfile(group_dir,['RespCells' savetit '.mat']),'RespCells');
+end
 
 
 
@@ -244,17 +290,16 @@ if isplot
     
     if contains(condition{1},'bursting') || contains(condition{1},'rhythmic')
         
-        fnm = fullfile(group_ev_dir2,[condition{1} num2str(cnr) '_' alignevent '_average.jpg']);   % jpg
-        fnm2 = fullfile(group_ev_dir2,[condition{1} num2str(cnr) '_' alignevent '_average.fig']);   % fig
-        fnm3 = fullfile(group_ev_dir2,[condition{1} num2str(cnr) '_' alignevent '_average.pdf']);   % fig
+        fnm = fullfile(group_ev_dir2,[condition{1} num2str(cnr) '_' alignevent '_average' savetit]);  
         
     else
-        fnm = fullfile(group_ev_dir2,[alignevent '_average.jpg']);   % jpg
-        fnm2 = fullfile(group_ev_dir2,[alignevent '_average.fig']);   % jpg
-        fnm3 = fullfile(group_ev_dir2,[alignevent '_average.pdf']);  % fig
+        fnm = fullfile(group_ev_dir2,[alignevent '_average' savetit]);   % jpg
     end
-    saveas(H,fnm);
-    saveas(H,fnm2);
+    if ~isempty(excl_beforeEv)
+        fnm = [fnm '_ExcBef_' excl_beforeEv];
+    end
+    saveas(H,[fnm '.jpg']);
+    saveas(H,[fnm '.fig']);
     
     close(H)
     

@@ -30,9 +30,10 @@ else
     wn = varargin{1};
 end
 
-% Time vector 
-
 dt = 0.001; % time resolution
+
+
+% Time vector 
 time = wn(1):dt:wn(2);   % time vector
 
 
@@ -60,8 +61,11 @@ end
 set(gca,'XLim',wn);
 % set(gca,'YLim',yL);
 yL = ylim;
-notnan1 = ~any(isnan(psth_R1),2);
-notnan2 = ~any(isnan(psth_R2),2);
+% notnan1 = ~any(isnan(psth_R1),2);
+% notnan2 = ~any(isnan(psth_R2),2);
+
+notnan1 = any(~isnan(psth_R1),2);
+notnan2 = any(~isnan(psth_R2),2);
 
 if ~isempty(psth_R1)
     txt1 = text(wn(2),yL(2)*0.9,['n = ' num2str(sum(notnan1)) '/'  num2str(size(psth_R1,1)) ],'Color',colors(1,:),'HorizontalAlignment','right');

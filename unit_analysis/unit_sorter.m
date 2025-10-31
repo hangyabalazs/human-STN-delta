@@ -7,15 +7,14 @@ function unit_sorter(EventTypes,EvTy)
 %   or significant difference between partitioned sets of trials before an
 %   event (predictive units) are marked. 
 %   -Generates average PSTHs and PSTH maps of responsive/ predictive units.
-%   -Compares partitioned sets of trials in responsive/ predictive units.
 %
 %Input parameters:
 %     EVENTTYPES        1xN cell array of event label for responsive units 
 %
 %     EVTY              1xN cell array of event labels for predictive units
 %
-% See also: RESPONSESORTER_PD, EVSI_AVG_PSTH, RESPSORT_PARTITIONS_PD,
-% PARTITIONS_AVG_PSTH, AVG_PSTH_STAT
+% See also: RESPONSESORTER_PD, EVSI_AVG_PSTH, RESPSORT_PARTITIONS_PD, 
+% PARTITIONS_AVG_PSTH, AVG_PSTH_STATNORM_PSTH_MAP1,ULTIMATE_PSTH
 
 
 % Balázs Hangya, Panna Heged?s, Johanna Petra Szabó, 10.2024
@@ -33,14 +32,21 @@ global cell_dir stat_dir group_dir
 test_window = [0 1];
 twinds = [-0.5 0; -1 0; -1.5 0; -2 0];
 pdcells = findcell;
-
-
+isfig = true;
 % Find responsive cells
 for iE = 1:length(EventTypes)
     
     event = EventTypes{iE};
-
-    responsesorter_PD(pdcells, stat_dir, event, test_window, true);
+    
+    
+    sort_resdir = fullfile(stat_dir,event); if ~isdir(sort_resdir); mkdir(sort_resdir); end;
+    responsesorter_PD(pdcells, sort_resdir, event, test_window, true,'',isfig);
+    
+    if strcmp(event,'StopSignal')
+        ev2excl = 'StimulusOn';
+        sort_resdir = fullfile(stat_dir,[event '_ExclBef_' ev2excl]); if ~isdir(sort_resdir); mkdir(sort_resdir); end;
+        responsesorter_PD(pdcells, sort_resdir, event, test_window, true,ev2excl,isfig);
+    end
     
     
 end
@@ -52,8 +58,16 @@ for eii = 1:length(EventTypes)
     event = EventTypes{eii};
     
     propname_resp = [event 'psth_stat_' num2str(test_window)];
+    propname_boxstat = [event 'boxstat_' num2str(test_window)];
     
-    EvsI_avg_psth(pdcells,propname_resp,event,'none',true)
+%     EvsI_avg_psth(pdcells,{propname_resp, propname_boxstat},event,'none',true)
+    EvsI_avg_psth(pdcells,propname_resp,event,'none',true,[],true,'_psth_stat')
+    
+    if strcmp(event,'StopSignal')
+        ev2excl = 'StimulusOn';
+        EvsI_avg_psth(pdcells,{propname_resp, propname_boxstat},event,'none',true,ev2excl)
+    end
+    
     
 end
 
@@ -67,7 +81,13 @@ for i = 1:length(EvTy)
     alignevent = EvTy{i};
     resdir = fullfile(cell_dir,'Predict_PD_multi');
     
-    respsort_partitions_PD(pdcells,alignevent,'#StopPartition', twinds, resdir, 1);
+    respsort_partitions_PD(pdcells,alignevent,'#StopPartition', twinds, resdir, 1,[]);
+    
+    if strcmp(alignevent,'StopSignal')
+        ev2excl = 'StimulusOn';
+        
+        respsort_partitions_PD(pdcells,alignevent,'#StopPartition', twinds, resdir, 1,ev2excl);
+    end
     
 end
 
@@ -80,21 +100,15 @@ for i =1:length(EvTy)
     alignevent = EvTy{i};
     fprintf('%s...',alignevent)
     propname_resp = [alignevent 'psth_stat_' num2str(test_window)];
-        
+    
     partitions_avg_psth(pdcells,twinds,alignevent,'#StopPartition',propname_resp,{'none'},1);
     
+    if strcmp(alignevent,'StopSignal')
+        ev2excl = 'StimulusOn';
+        partitions_avg_psth(pdcells,twinds,alignevent,'#StopPartition',propname_resp,{'none'},1,ev2excl);
+    end
 end
 
-
-% Compare partitions of responsive/ predictive units
-partition = '#StopPartition';
-resdir = fullfile(cell_dir,'grouped2','Partitions',[partition(2:end) '2']);
-if ~isdir(resdir); mkdir(resdir); end;
-
-
-for ei = 1:length(EventTypes)
-    avg_psth_stat(EventTypes{ei},'#StopPartition',resdir,[-1.5 3])
-end
 
 
 end

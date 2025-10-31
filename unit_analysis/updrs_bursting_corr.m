@@ -2,7 +2,7 @@ function updrs_bursting_corr(avgBI, figdir)
 %UPDRS_BEHAV_CORR calculates correlation between UPDRS scores and bursting index
 %   UPDRS_BEHAV_CORR calculates Pearson's correalation between preop and postop (DBS-on)
 %   UPDRS scores (tested both with and without medication) and bursting
-%   index of units. 
+%   index of units.
 %   Creates scatter plots and overlays regression line (robust regression) with confidence interval.
 %
 %   Input parameters
@@ -22,7 +22,9 @@ for rt = 1:2
     switch rt; case 1; rectime = 'preop'; case 2; rectime = 'postop'; end;
     for oo = 1:2
         switch oo; case 1; offon = 'off'; case 2; offon = 'on'; end;
-        bursting_updrs(rectime,offon,figdir,avgBI)
+%         bursting_updrs(rectime,offon,figdir,avgBI,'')
+        bursting_updrs(rectime,offon,figdir,avgBI,'SUA')
+        bursting_updrs(rectime,offon,figdir,avgBI,'MUA')
     end
 end
 
@@ -30,7 +32,7 @@ end
 
 
 %--------------------------------------------------------------------------
-function bursting_updrs(rectime,offon,figdir,avgBI)
+function bursting_updrs(rectime,offon,figdir,avgBI,unit_group)
 
 global rootdir
 
@@ -47,6 +49,16 @@ for pati = 1:patnr
     patnm = allpats{pati};
     patcells = findcell('RAT',patnm);
     brst = get_prop('bursting',patcells);
+    
+    if contains(upper(unit_group),'UA')
+        prop = get_prop('SUA',patcells);
+        if strcmpi(unit_group,'SUA')
+            
+            brst = brst(prop);
+        elseif strcmpi(unit_group,'MUA')
+            brst = brst(~prop);
+        end
+    end
     %     figure;
     %     boxplot(brst,'plotstyle','compact'); hold on; scatter(ones(1,length(brst)),brst,[],'m','filled'); ylim([-0.8 0.8]);
     %     keyboard;
@@ -73,8 +85,8 @@ fig = figure;
 
 
 
-% [p, R] = polypredcicall_mod(allbrst2,allupd2,0.95,'robust',0.1);
-[p, R] = polypredcicall_mod(allbrst2,allupd2,0.95,'',0.1);
+[p, R] = polypredcicall_mod(allbrst2,allupd2,0.95,'robust',0.1);
+% [p, R] = polypredcicall_mod(allbrst2,allupd2,0.95,'',0.1);
 hold on; scatter(allbrst2, allupd2,[],'k','filled');
 xlabel('bursting index'); ylabel([rectime ' med ' upper(offon) ' UPDRS'])
 
@@ -82,6 +94,9 @@ xlabel('bursting index'); ylabel([rectime ' med ' upper(offon) ' UPDRS'])
 
 suptitle([rectime ' med-' offon ])
 fnm = fullfile(figdir,[upper(rectime) '_med' upper(offon) '_medianBI' char(string(avgBI))]);
+if ~isempty(unit_group)
+    fnm =  [fnm '_' unit_group];
+end
 saveas(fig,[fnm '.jpg'])
 saveas(fig,[fnm '.fig'])
 saveas(fig,[fnm '.pdf'])

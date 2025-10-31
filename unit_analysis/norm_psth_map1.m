@@ -39,10 +39,13 @@ function [psth_RR] = norm_psth_map1(cellids,resptype,alignevent, varargin);
 % 
 %     'isfig'           true | false, if ture generates plots (def. value: true)
 %
+%     'parttags'        vector of tags associated with PARTS partition tag,
+%                       defined in defineLabelsColors_pd.m (def. value: [1 2])
+%
 % Output parameter:
 %   PSTH_RR      plotted PSTHs
 
-% See also: ULTIMATE_PSTH, PARTITION_TRIALS,
+% See also: ULTIMATE_PSTH, PARTITION_TRIALS, DEFINELABELSCOLORS_PD
 
 % Johanna Petra Szabó, 10.2024
 % Lendulet Laboratory of Systems Neuroscience
@@ -53,6 +56,7 @@ prs = inputParser;
 addRequired(prs,'cellids',@iscell)
 addRequired(prs,'resptype',@ischar) % 'activation' | 'inhibition' | 'cluster'
 addRequired(prs,'alignevent',@ischar)
+addParameter(prs,'excl_beforeEv',[],@(x) ischar(x)|isnumeric(x)) % exclude spikes before this event
 addParameter(prs,'baseline','indiv',@ischar) % 'indiv' | 'common'
 addParameter(prs,'bwin',[-3 -2],@isvector)
 addParameter(prs,'basl_psth',{},@iscell) % if baseline = 'common'
@@ -63,6 +67,7 @@ addParameter(prs,'bindex',[],@(x) isvector(x)||isnumeric(x))
 addParameter(prs,'grouptags',{},@iscell) 
 addParameter(prs,'group_limit',[],@isnumeric) % if groupstags ~isempty
 addParameter(prs,'isfig',true,@islogical)
+addParameter(prs,'parttags',[1 2],@(x) isvector(x)||isnumeric(x))
 parse(prs,cellids,resptype,alignevent,varargin{:});
 pr = prs.Results;
 
@@ -88,7 +93,9 @@ if strcmp(pr.parts,'all')
     partnr = 1;
 else
     partnr = 2;
-    [mylabels, ~] = makeColorsLabels(@defineLabelsColors_pd,{[pr.parts(2:end) '=1'],[pr.parts(2:end) '=2']});
+    [mylabels, mycolors] = makeColorsLabels(@defineLabelsColors_pd,...
+    {[pr.parts(2:end) '=' num2str(pr.parttags(1)) ],[pr.parts(2:end) '=' num2str(pr.parttags(2))]});
+
 end
 
 % Ultimate PSTH
@@ -97,15 +104,23 @@ R = cell(length(cellids),5);
 for iC = 1:length(cellids)
     
     
-    [R{iC,1} R{iC,2} R{iC,3} R{iC,4} R{iC,5} R{iC,6}] = ultimate_psth(cellids{iC},'trial', alignevent,wn,...
+    [R{iC,1} R{iC,2} R{iC,3} R{iC,4} R{iC,5}] = ultimate_psth(cellids{iC},'trial', alignevent,wn,...
         'dt',dt,'display',false,'sigma',pr.sigma,'parts',pr.parts,'isadaptive',0,...
-        'maxtrialno',Inf,'baselinewin',pr.bwin,'testwin',[0 0.5],'relative_threshold',0.1);
+        'maxtrialno',Inf,'baselinewin',pr.bwin,'testwin',[0 0.5],'relative_threshold',0.1,...
+        'first_event',pr.excl_beforeEv);
     
     if partnr==2
         TE = loadcb(cellids{iC},'TrialEvents');   % load trial events
-        [trials, ~, ~, ~, ~] = partition_trials(TE,pr.parts);
+        [trials_all, tgs,~, ~, PartNum] = partition_trials(TE,pr.parts);
         
+        if PartNum ==1&& contains(tgs{1},'2'); 
+            trials_all = [{[]} trials_all(1)]; pn = 2; 
+        elseif PartNum ==1&& contains(tgs{1},'1'); 
+            trials_all = [trials_all(1) {[]}]; pn = 2; 
+        end;
+        trials = trials_all(pr.parttags);
         notr = cellfun(@length,trials)<2;
+        
         if any(notr)
             R{iC,2}(notr,:) = nan(1,size(R{iC,2},2));
         end
@@ -128,10 +143,10 @@ for spi = 1:partnr
         if partnr==1
             r = cell2mat(spsthR);
         else
-            %             r = cell2mat(cellfun(@(x) x(spi,:), spsthR,'UniformOutput',0));
+            %             r = cell2mat(cellfun(@(x) x(pr.parttags(spi),:), spsthR,'UniformOutput',0));
             r = nan(size(spsthR,1),length(time));
-            for ri = 1:size(spsthR,1)
-                partinx = find(strcmp(Rtags{ri},[pr.parts(2:end) '=' num2str(spi)]));
+            for ri = 1:size(spsthR,1) % loop over cells
+                partinx = find(strcmp(Rtags{ri},[pr.parts(2:end) '=' num2str(pr.parttags(spi))]));
                 if ~isempty(partinx)
                     r(ri,:) = spsthR{ri,:}(partinx,:);
                 end

@@ -19,7 +19,12 @@ for ic = 1:length(cellids)
     act_cellid = cellids{ic};
     
     spikes_file = cellid2fnames(act_cellid,'Spikes');
-
+[pnm,fnm,ext] = fileparts(spikes_file);
+if contains(fnm,'TT')&&~contains(fnm,'Ch')
+    t = strfind(fnm,'TT');
+    fnm(t:t+1) = 'Ch';
+    spikes_file = fullfile(pnm,[fnm,ext]);
+end
 
     load(spikes_file)
     TS_sec = TS/10000;

@@ -49,6 +49,7 @@ respcells_loc(EventTypes,'pred')
 
 
 % Test localization bias of behaviorally responsive/ predictive units in STN subregions
+%%
 fish_p = nan(length(EventTypes), 6);
 for ei = 1:length(EventTypes)
     event = EventTypes{ei};
@@ -60,13 +61,13 @@ for ei = 1:length(EventTypes)
             case 4; resptyp = {'F_smaller_than_S', 'F_bigger_than_S'}; case 5; resptyp = {'F_smaller_than_S'}; case 6; resptyp = {'F_bigger_than_S'};
                 
         end;
-        
+        %%
         fish_p(ei,ri) =  respcells_loc_stat(event,resptyp,EventTypes);
     end
 end
 
 
-
+%%
 % Correlate localization coordinates/ distnace from subregion centroids with bursting index
 bursting_correlations
 end
@@ -829,7 +830,7 @@ for k = 1:2
     noev_cellids = notevs;
     noev_cellids(bi) = []; % clear cells resp both to the selected event & other events from not-resp group
     
-    [locs_ev0, ~] = get_prop('STN_loc',ev_cellids); % assigns one subregion to each unit where possible
+    [locs_ev0, ~] = get_prop('STN_loc_centr',ev_cellids); % assigns one subregion to each unit where possible
     locs_ev = floor(locs_ev0);
     locs_ev(isnan(locs_ev)) = 0;
     locs_ev(locs_ev==2) = 0;
@@ -840,7 +841,7 @@ for k = 1:2
     notev_label2 = notev_label; notev_label2(strfind(notev_label,'_')) = ' ';
     
     
-    [locs_nev0, ~] = get_prop('STN_loc',noev_cellids); % assigns one subregion to each unit where possible
+    [locs_nev0, ~] = get_prop('STN_loc_centr',noev_cellids); % assigns one subregion to each unit where possible
     locs_nev = floor(locs_nev0);
     locs_nev(isnan(locs_nev)) = 0;
     locs_nev(locs_nev==2) = 0;
@@ -876,8 +877,9 @@ for k = 1:2
     if fish_p<0.05; col = 'r'; else; col = 'k'; end;
     text(0.2,yL(2)*.8,['fishex p=' num2str(fish_p)], 'Color',col );
     legend(subregs([1 3]));
-    
-    fnm = fullfile(resdir,[event ' resp -' resptyp{:} '_vs_' notev_label '_Motor_vs_Assoc']);
+    setmyplot_balazs(gca)
+%     fnm = fullfile(resdir,[event ' resp -' resptyp{:} '_vs_' notev_label '_Motor_vs_Assoc']);
+    fnm = fullfile(resdir,[event ' resp -' resptyp{:} '_vs_' notev_label '_Motor_vs_Assoc_LocCentr']);
     saveas(fig,[fnm '.jpg'])
     saveas(fig, [fnm '.fig'])
     saveas(fig, [fnm '.pdf'])
@@ -910,7 +912,7 @@ end
 function locnrs = find_nrs(cellids,subnr)
 
 locnrs = nan(1,subnr);
-[srs, ~] = get_prop('STN_loc',cellids); % assigns one subregion to each unit where possible
+[srs, ~] = get_prop('STN_loc_centr',cellids); % assigns one subregion to each unit where possible
 for r = 1:subnr
     locnrs(1,r)= sum(srs==r|srs==r+0.2); % rows: activ/inhib; columns: subregions
 end

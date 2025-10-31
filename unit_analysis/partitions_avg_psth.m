@@ -1,4 +1,4 @@
-function partitions_avg_psth(pdcells,twinds,alignevent,partition,propname_resp,condition,isplot)
+function partitions_avg_psth(pdcells,twinds,alignevent,partition,propname_resp,condition,isplot,varargin)
 %PARTITIONS_AVG_PSTH
 %   PARTITIONS_AVG_PSTH(pdcells,twinds,alignevent,partition,propname_resp,condition,isplot)
 %         Selects units with significant predictive behaviour (see RESPSORT_PARTITIONS_PD) around ALIGNEVENT.
@@ -39,6 +39,18 @@ dbstop if error
 global cell_dir group_dir
 
 
+if nargin<8
+    excl_beforeEv =[];
+else
+    excl_beforeEv = varargin{1};
+end
+
+if nargin<9
+    save_PredCells =false;
+else
+    save_PredCells = varargin{2};
+end
+
 numCells = length(pdcells);
 
 propnames = listtag('prop');
@@ -54,53 +66,69 @@ end
 
 
 TEtags = {[partition(2:end) '=1'],[partition(2:end) '=2']};
-bwin = [-3 -2];
-
+if isempty(excl_beforeEv)
+    bwin = [-3 -2];
+else
+    bwin = [-1.1 -0.1];
+end
 [parttags, colors] = makeColorsLabels(@defineLabelsColors_pd,TEtags);
 
 
 % get cells responsive to the event
 
-propnm = propnames(cellfun(@(x) contains(x,propname_resp),propnames));
-% cell2mat(cellfun(@(x) getvalue(x,pdcells),propnm,'UniformOutput',false));
-resp_values0 = getvalue(propnm{1},pdcells);
+% propnm = propnames(cellfun(@(x) contains(x,propname_resp),propnames));
+% % cell2mat(cellfun(@(x) getvalue(x,pdcells),propnm,'UniformOutput',false));
+% resp_values0 = getvalue(propnm{1},pdcells);
+% 
+% cellidx_act = find(resp_values0==1);
+% cellidx_inh = find(resp_values0==-1);
+% 
+% cellids_act = pdcells(cellidx_act);
+% cellids_inh = pdcells(cellidx_inh);
 
-cellidx_act = find(resp_values0==1);
-cellidx_inh = find(resp_values0==-1);
-cellids_act = pdcells(cellidx_act);
-cellids_inh = pdcells(cellidx_inh);
+[isresp, cids] = get_prop('resp',pdcells, 'Events2Align',{alignevent});
+
+cellids_act = cids(isresp==1);
+cellids_inh = cids(isresp==-1);
+
 
 % get cells predictive to event partitions
 
 pred_codes = [-1 1]; pred_tags = {'F<S','F>S'};
 
-
-
-propnm_pred= propnames(cellfun(@(x) contains(x,alignevent) & contains(x,partition(2:end)) & contains(x,'_stat_'),propnames));
-
-if isempty(propnm_pred)
-    propnm_pred = propnames(cellfun(@(x) contains(x,partition(2:end)) & contains(x,'_stat_') & ~contains(x,'StimulusOn'),propnames));
-    disp('StopSignal partitioned')
+ propnm_pred= propnames(cellfun(@(x) contains(x,alignevent) & contains(x,partition(2:end)) & contains(x,'_stat_'),propnames));
+    
+    if isempty(propnm_pred)
+        propnm_pred = propnames(cellfun(@(x) contains(x,partition(2:end)) & contains(x,'_stat_') & ~contains(x,'StimulusOn'),propnames));
+        disp('StopSignal partitioned')
+    end
+    
+    
+    pred_values = cell2mat(cellfun(@(x) getvalue(x,pdcells), propnm_pred,'UniformOutput',false));
+    
+    
+    pred_cells_inx = find(any(pred_values,2));
+    
+    all_pred_values = pred_values(pred_cells_inx,:); % predictive values (-1/0/1) derived from statistical tests with different test windows
+    opmat = mat2cell(all_pred_values,ones(size(all_pred_values,1),1),size(all_pred_values,2));
+    
+    values = cellfun(@(x) x(find(x==1|x==-1,1)), opmat); % values of first test for each cell
+    
+    inx1 = values==pred_codes(1);
+    inx2 =  values==pred_codes(2);
+    
+if save_PredCells
+   
+    pred_cellidx1 = pred_cells_inx(inx1);
+    pred_cellidx2 = pred_cells_inx(inx2);
+else
+    pred_cellids1 = PredCells.([alignevent '_StopPartition']).none.F_smaller_than_S;
+    pred_cellids2 = PredCells.([alignevent '_StopPartition']).none.F_bigger_than_S;
+    
+    pred_cellidx1 = find(ismember(pdcells,pred_cellids1));
+    pred_cellidx2 = find(ismember(pdcells,pred_cellids2));
+    
 end
-
-
-pred_values = cell2mat(cellfun(@(x) getvalue(x,pdcells), propnm_pred,'UniformOutput',false));
-
-
-pred_cells_inx = find(any(pred_values,2));
-
-all_pred_values = pred_values(pred_cells_inx,:); % predictive values (-1/0/1) derived from statistical tests with different test windows
-
-opmat = mat2cell(all_pred_values,ones(size(all_pred_values,1),1),size(all_pred_values,2));
-
-values = cellfun(@(x) x(find(x==1|x==-1,1)), opmat); % values of first test for each cell
-
-inx1 = values==pred_codes(1);
-inx2 =  values==pred_codes(2);
-
-pred_cellidx1 = pred_cells_inx(inx1);
-pred_cellidx2 = pred_cells_inx(inx2);
-
 
 % plot cells grouped by conditions
 cnr = length(condition);
@@ -133,7 +161,8 @@ for coi = 1:cnr
         Ha = figure;
         [R] = norm_psth_map1(all_cellids,'grouped',alignevent,...
             'baseline','indiv','basl_psth',{},'bwin',bwin, 'parts',partition,'cLim',[-6 6],...
-            'bindex',cat(1,bindex1,bindex2),'isfig',true,'grouptags',pred_tags,'group_limit',cellnrs(1));
+            'bindex',cat(1,bindex1,bindex2),'isfig',true,'grouptags',pred_tags,'group_limit',cellnrs(1),...
+            'excl_beforeEv',excl_beforeEv);
         
         
         % Mark significantly different test window
@@ -166,7 +195,15 @@ for coi = 1:cnr
         
         set(0, 'DefaultFigureRenderer', 'painters');
         
+        if ~isempty(excl_beforeEv)
+            fnm3 = [fnm3 '_ExcBef_' excl_beforeEv];
+        end
         save(fnm3,'R');
+        
+        
+        if ~isempty(excl_beforeEv)
+            fnm = [fnm '_ExcBef_' excl_beforeEv];
+        end
         saveas(Ha,[fnm '.jpg']);
         saveas(Ha,[fnm '.fig']);
 %         saveas(Ha,[fnm '.pdf']);
@@ -241,6 +278,9 @@ for coi = 1:cnr
         fdir1 = fullfile(group_dir,alignevent,'pred_PSTH_avg'); fastif(~isdir(fdir1),mkdir(fdir1),0);
         fnm1 = fullfile(fdir1,[alignevent '_' partition(2:end) '_' cond '_average']);
         
+        if ~isempty(excl_beforeEv)
+            fnm1 = [fnm1 '_ExcBef_' excl_beforeEv];
+        end
         
         set(0, 'DefaultFigureRenderer', 'painters');
         
@@ -253,7 +293,9 @@ for coi = 1:cnr
     
 end
 
+if save_PredCells
 save(fullfile(group_dir,'PredCells.mat'),'PredCells');
+end
 
 
 
