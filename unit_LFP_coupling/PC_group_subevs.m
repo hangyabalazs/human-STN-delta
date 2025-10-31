@@ -23,7 +23,7 @@ function PC_group_subevs(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,
 %     SUBEVENTTYPES     Nx2 cell array of partition ("subevent") labels, each row
 %                       corresponds to an event label, columns to partitions
 %                       {'CueStim','StopStim';'FailedStopTrial','SuccesfulStopTrial';'CueResponse','StopResponse';'Correct','Error';};
-
+%
 % Optional input (name-value pairs with default values):
 %   'chanmean'      if true, channel averaged LFP data is used, if false
 %                   LFP data is plotted channel-by-channel
@@ -50,7 +50,11 @@ function PC_group_subevs(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,
 %   'plottype'      char. array, type of polar plot to represent phase
 %                   distribution
 %       'scatter' | 'hist' (def. value: 'scatter')
-
+%   'partition'     char array of partition label, for color and
+%                   contingency label (see defineLabelsColors_pd.m)
+%                   ex: #StopPartition | #CuepairPartition (def: '#StopPartition')
+%   'parttags'      vector of partition tag (see defineLabelsColors_pd.m)
+%
 %
 % See also: PC_CELL_LEVEL, PC_GROUPS, B_RAO3_MOD, B_WATSONTWO
 
@@ -74,6 +78,8 @@ addParameter(prs,'dominantfreq',true,@islogical);
 addParameter(prs,'PC_win',1,@isvector);
 addParameter(prs,'group','all',@ischar);
 addParameter(prs,'plottype','scatter',@ischar);
+addParameter(prs,'partition','#StopPartition',@ischar);
+addParameter(prs,'parttags',[1 2],@isvector);
 parse(prs,plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,varargin{:})
 pr = prs.Results;
 
@@ -157,23 +163,23 @@ for fri = 1:length(fr_names)
             end
             
             
-            fg = clust_fig_subevents(bestmod(ww),pr.SubEventTypes,ei,RV,pr.plottype);
-            
+            fg = clust_fig_subevents(bestmod(ww),pr.SubEventTypes,ei,RV,pr.plottype,pr.partition,pr.parttags);
+            fignm = [ '_ds_spike_' pr.partition(2:end) '_comps' num2str(bestmod(ww)) '_' pr.plottype];
             
             switch pr.PC_win;
                 case 1;
                     suptitle({event,num2str(plot_win),[pr.group ' group']});
-                    fignm = [pr.group '_ds_spike_subevs'];
+                    fignm = [pr.group fignm];
                 case 2;
                     suptitle({event,['Win' num2str(ww)], [pr.group ' group']});
-                    fignm = [pr.group '_WIN' num2str(ww) '_ds_spike_subevs'];
+                    fignm = [pr.group '_WIN' num2str(ww) fignm];
             end
             
             
             set(fg,'Position',get(0,'Screensize'))
-            saveas(fg,fullfile(figdir,[fignm '_comps' num2str(bestmod(ww)) '_' pr.plottype '.jpg']));
-            saveas(fg,fullfile(figdir,[fignm '_comps' num2str(bestmod(ww)) '_' pr.plottype '.fig']));
-            saveas(fg,fullfile(figdir,[fignm '_comps' num2str(bestmod(ww)) '_' pr.plottype '.pdf']));
+            saveas(fg,fullfile(figdir,[fignm '.jpg']));
+            saveas(fg,fullfile(figdir,[fignm  '.fig']));
+            saveas(fg,fullfile(figdir,[fignm  '.pdf']));
             close(fg);
         end
     end
@@ -184,7 +190,7 @@ end
 
 
 %--------------------------------------------------------------------------
-function fg = clust_fig_subevents(bestmod,SubEventTypes,ei,RV,plottype)
+function fg = clust_fig_subevents(bestmod,SubEventTypes,ei,RV,plottype,partition,parttags)
 
 
 fg = figure;
@@ -193,8 +199,12 @@ spnr = 1;
 
 switch bestmod
     case 1;
-        cols{1} = rgb('light red');
-        cols{2} = rgb('light green');
+        %         cols{1} = rgb('light red');
+        %         cols{2} = rgb('light green');
+        
+        [~, cols] = makeColorsLabels(@defineLabelsColors_pd,...
+            {[partition(2:end) '=' num2str(parttags(1)) ],[partition(2:end) '=' num2str(parttags(2))]});
+        
         
     case 2;
         
@@ -214,7 +224,7 @@ rownr = bestmod; colnr = 2;
 for cp = 1:bestmod
     subplot(rownr,colnr,spnr)
     
-    wat_p = nan(1,2);  rao_p = nan(1,2);
+    wat_p = nan(1,2);  rao_p = nan(1,2); nn = nan(1,2);
     for sei = 1:2
         evty = SubEventTypes{ei,sei};
         cl_rv = RV.(evty).(['CL' num2str(cp)]);
@@ -222,20 +232,7 @@ for cp = 1:bestmod
         thet = angle(cl_rv);
         rhos = abs(cl_rv);
         
-        if strcmp(plottype,'scatter')
-            polim = polarscatter(thet,rhos,50,cols{sei}(cp,:),'filled');
-            maxrL = 1.1;
-        elseif strcmp(plottype,'hist')
-            edges=[(0:20:360)/180*pi];
-            polim = polarhistogram(thet,edges,'FaceColor',cols{sei}(cp,:));
-            maxrL = 15;
-        end
-        
-        rlim([0 maxrL]);
-        
-        set(gca,'ThetaAxisUnits','radians');
-        hold on;
-        %
+         %
         %         [mu,kappa,~,wp,~] = b_watson(thet);
         %      s
         
@@ -245,10 +242,27 @@ for cp = 1:bestmod
             [~,~, ~,~ ,mrl,ftm] = b_rao3_mod(thet);
         end
         
-        polarplot([angle(ftm) angle(ftm)],[0 mrl],'Color',cols{sei}(cp,:)/2,'LineWidth',3);
+        if strcmp(plottype,'scatter')
+            polim = polarscatter(thet,rhos,50,cols{sei}(cp,:),'filled'); hold on;
+            maxrL = 1.1;
+            
+            PL(sei) = polarplot([angle(ftm) angle(ftm)],[0 mrl],'Color',cols{sei}(cp,:)/2,'LineWidth',3);
+        elseif strcmp(plottype,'hist')
+            edges=[(0:20:360)/180*pi];
+            polim = polarhistogram(thet,edges,'FaceColor',cols{sei}(cp,:)); hold on;
+            maxrL = 15;
+            
+            PL(sei) = polarplot([angle(ftm) angle(ftm)],[0 maxrL],'Color',cols{sei}(cp,:)/2,'LineWidth',3);
+        end
         
+        rlim([0 maxrL]);
+        
+        set(gca,'ThetaAxisUnits','radians');
+        
+       nn(sei) = length(thet);
     end
-    title(['Cluster' num2str(cp)])
+    title(['Cluster' num2str(cp) ])
+%     legend(PL, SubEventTypes,'Location','north')
     
     %     annotation('textbox', [0, 1/cp, 1, 0], 'string', ...
     %         [SubEventTypes{ei,1}(1) ' : W p = ' num2str(wat_p(1))],'LineStyle','none')
@@ -259,11 +273,11 @@ for cp = 1:bestmod
     
     if rao_p(1)<0.05; colo = 'r'; else; colo = 'k'; end;
     annotation('textbox', [0, 0.8/cp, 1, 0], 'string', ...
-        [SubEventTypes{ei,1}(1) ' : R p = ' num2str(rao_p(1))],'LineStyle','none','Color',colo)
+        [SubEventTypes{ei,1}(1) ' : R p = ' num2str(rao_p(1)) ', n=' num2str(nn(1))],'LineStyle','none','Color',colo)
     
     if rao_p(2)<0.05; colo = 'r'; else; colo = 'k'; end;
     annotation('textbox', [0, 0.7/cp, 1, 0], 'string', ...
-        [SubEventTypes{ei,2}(1) ' : R p = ' num2str(rao_p(2))],'LineStyle','none','Color',colo)
+        [SubEventTypes{ei,2}(1) ' : R p = ' num2str(rao_p(2)) ', n=' num2str(nn(2))],'LineStyle','none','Color',colo)
     
     
     
@@ -290,12 +304,16 @@ for cp = 1:bestmod
     mrls2 = abs(RV.(SubEventTypes{ei,2}).(['CL' num2str(cp)]))';
     
     boxplot([mrls1 mrls2],SubEventTypes(ei,:));
+    
+    set_my_boxplot(gca)
+    
     [wix_p, ~, ~] = signrank(mrls1,mrls2);
     hold on;
     yL = ylim; xL = xlim;
     if wix_p<0.05; colo = 'r'; else; colo = 'k'; end;
     text(xL(1),yL(end),['WilcX p = ' num2str(wix_p)],'Color',colo);
     spnr = spnr+1;
+    setmyplot_balazs(gca);
     
 end
 end

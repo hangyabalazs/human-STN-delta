@@ -110,7 +110,7 @@ actty = {'Cue A','Cue I', 'Stop A', 'Stop I', 'KP A', 'KP I', 'F A', 'F I', 'Sto
 fig = figure;
 
 
-barmat = cat(2,respsign(:),respnosign(:))
+barmat = cat(2,respsign(:),respnosign(:));
 ba = bar(barmat,'stacked','FaceColor','flat');
 
 ba(1).CData = [0.5 0.5 0.5];
@@ -119,6 +119,8 @@ ba(2).CData = [0 0 0];
 xt = get(gca, 'XTick');
 set(gca, 'XTick', xt, 'XTickLabel', actty)
 legend({'Sign PC','Not sign. PC'})
+set_my_boxplot(gca);
+setmyplot_balazs(gca);
 
 set(gcf,'Position',get(0,'Screensize'));
 

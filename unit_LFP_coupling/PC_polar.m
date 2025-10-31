@@ -5,7 +5,7 @@ function [polim sign p_vals mrl Z ftm] = PC_polar(allsp_ph,binnr,stat,isfig,vara
 %   divided to BINNR nr of bins. STAT statistical test is performed. 
 % 
 % Required inputs:
-%   ALLSP_PH    vector of phase values associated with unit spikes
+%   ALLSP_PH    row vector of phase values associated with unit spikes
 %   BINNR       numeric value, nr of bins in histogram
 %   STAT        type of stat test to perform 
 %     'ray' | 'rao'

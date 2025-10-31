@@ -268,12 +268,12 @@ for snr = 1:length(pr.sess2analyse)
                     
                     % Find epochs in EEG data
                     
-                    if ~strcmp(event,'StimulusOn') || (strcmp(event,'StimulusOn')&& ~pr.subevs)
+                    if ~strcmp(event,'StimulusOn') || ( strcmp(event,'StimulusOn') && ~contains(evty,'Stop') )
                         evinx = Evinxx.(event).(evty).epoch_index;
                         TE_index = Evinxx.(event).(evty).TE_index;
                         
                         
-                    elseif strcmp(event,'StimulusOn')&& pr.subevs
+                    elseif strcmp(event,'StimulusOn')&& contains(evty,'Stop')
                         [TE_index,evinx] = StimOn_stoppart_evinx(Evinxx,event,evty);
                     end
                     

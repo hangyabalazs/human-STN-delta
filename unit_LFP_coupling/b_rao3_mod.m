@@ -22,7 +22,7 @@ function [Z,p1,U,p2,mrl,ftm] = b_rao3_mod(x)
 error(nargchk(1,1,nargin))
 
 if isempty(x)
-    [Z,p1,U,p2] = deal([]);
+    [Z,p1,U,p2,mrl,ftm] = deal([]);
     return
 end
 % Angle

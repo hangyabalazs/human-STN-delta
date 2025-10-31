@@ -1,4 +1,4 @@
-function PC_groups_f(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,varargin)
+function all_resvect = PC_groups_f(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,varargin)
 %PC_GROUPS  Population phase and MRL distribution
 % PC_GROUPS (plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,...)
 %   plots population phase histogram (rose diagram) derived from preferred
@@ -36,7 +36,7 @@ function PC_groups_f(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,vara
 %                   derived from listed STN subregions
 %                   (relevant only for intraop LFP data)
 %          'all' | 'Motor' | 'Limbic' | 'Associative'  (default value: 'all')
-%   'isplot'        true | false, if 1 figures are generated and saved (def.
+%   'isplot'        true | false, if true figures are generated and saved (def.
 %                   value: true)
 %   'downsamp'      spike or trial nr. downsampled
 %                    'no' | 'spike' (default value: 'no')
@@ -53,14 +53,22 @@ function PC_groups_f(plot_win,freqs,fr_names,PCdir,EventTypes,SubEventTypes,vara
 %   'rectype'       recording type to use for analyses ('EEG' | 'LFP')
 %                   (def. value: 'LFP')
 %   'group'         cell array of unit groups;
-%        'all' | 'signPC' | [EVENT ' resp'] | [EVENT ' pred'], where EVENT
-%        is a char. array of an event label
+%        'all' | 'signPC' | 'signPC_LFP' ('signPC_LFP' relevant in case of EEG PD analysis, selects unit sign. coupled to LFP)
+%       [EVENT ' resp'] | [EVENT ' pred'], (EVENT is a char. array of an event label)
 %   'channelgroup'  cell array of channel groups; if not empty, selects units
 %                   based on the channel they were detected on
 %        '{}' | {'close2centr'} (def. value: {})
 %   'side'          char. array, if not empty, only units detected at
 %                   specified side are considered
 %       'left' | 'right' | {} (def. value: {})
+%   'components'    1:N double vector | [], nr. of components in von
+%                   Mises distribution
+%                   if not empty, von Mises distributions composed by
+%                   the mixture of different number of components (COMPONENTS)
+%                   are fitted on the population phase distribution (it uses an
+%                   expectation maximalization algorithm and AIC, BIC,
+%                   and parametric bootstrap p-value is calculated to find
+%                   the best fitting model. (def. value: [1 2 3])
 %
 % See also: PC_FIGSTAT3, PC_CELL_LEVEL
 
@@ -144,22 +152,11 @@ for fri = 1:length(fr_names)
             % Select cells in group
             if strcmp(pr.group,'all')
                 cellids = fieldnames(PC_results.Hilb_PC);
-            elseif strcmp(pr.group,'signPC')
-                cellids0 = fieldnames(PC_results.Hilb_PC);
-                if pr.PC_win==1
-                    ray_sign = structfun(@(x) x.Ray_P<=0.05,PC_results.Hilb_PC);
-                elseif pr.PC_win==2
-                    ray_sign1 = structfun(@(x) x.Ray_P(1)<=0.05,PC_results.Hilb_PC);
-                    ray_sign2 = structfun(@(x) x.Ray_P(2)<=0.05,PC_results.Hilb_PC);
-                    ray_sign = ray_sign1|ray_sign2;
-                end
-                cellids = cellids0(ray_sign);
-                for ic = 1:length(cellids)
-                    cellids{ic}(end-1) = '.';
-                end
                 
                 
+            elseif contains(pr.group,'signPC')
                 
+                cellids = find_signPC_cellids(pr,PCdir,event,evty,plot_win,resdir,frnm,PC_results);
                 
             elseif contains(pr.group,'resp')
                 load(fullfile(group_dir,'RespCells.mat'));
@@ -209,6 +206,30 @@ for fri = 1:length(fr_names)
                         PredCells.([respevent '_StopPartition']).none.FailedStop);
                 end
                 
+            elseif contains(upper(pr.group),'UA')
+                
+                sign_cellids = find_signPC_cellids(pr,PCdir,event,evty,plot_win,resdir,frnm,PC_results);
+                
+                props = get_prop('SUA',sign_cellids);
+                if strcmp(upper(pr.group),'SUA')
+                    cellids = sign_cellids(props);
+                elseif strcmp(upper(pr.group),'MUA')
+                    cellids = sign_cellids(~props);
+                end
+            else
+                [patgroups, groups_nm] = clinical_groups({pr.group},'intraop','stimoff','left');
+                
+                % Get cellids - patient groups
+                cellids0 = {};
+                pats = patgroups{1};
+                for j = 1:length(pats)
+                    patcells = findcell('rat',pats{j});
+                    cellids0 = cat(2,cellids0,patcells);
+                end
+                
+                
+                cellids_signPC = find_signPC_cellids(pr,PCdir,event,evty,plot_win,resdir,frnm,PC_results);
+                cellids = intersect(cellids0,cellids_signPC);
             end
             
             %% Select cells based on channel group
@@ -278,19 +299,14 @@ for fri = 1:length(fr_names)
             end
             
             if contains(pr.group,'resp')
-                %                 [r_p,wat_pup,avg_resvec,avg_mu,bestmod,mufit,kappafit,pfit] = ...
-                %                     PC_figstat3(all_resvect,smwin,[pr.group ' cells'],event,figdir,pr.isplot,pr.components,fignm,'scatter');
                 
                 [r_p,wat_pup,avg_resvec,avg_mu,bestmod,mufit,kappafit,pfit] = ...
-                    PC_figstat3(all_resvect,smwin,[pr.group ' cells'],event,figdir,pr.isplot,fignm,'scatter');
-                
+                    PC_figstat3(all_resvect,smwin,[pr.group ' cells'],event,figdir,pr.isplot,fignm,'scatter',pr.components);
                 
             else
-                %                 [r_p,wat_pup,avg_resvec,avg_mu,bestmod,mufit,kappafit,pfit] = ...
-                %                     PC_figstat3(all_phasvals,smwin,[pr.group ' cells'],event,figdir,pr.isplot,pr.components,fignm,'hist');
                 
                 [r_p,wat_pup,avg_resvec,avg_mu,bestmod,mufit,kappafit,pfit] = ...
-                    PC_figstat3(all_phasvals,smwin,[pr.group ' cells'],event,figdir,pr.isplot,fignm,'hist');
+                    PC_figstat3(all_phasvals,smwin,[pr.group ' cells'],event,figdir,pr.isplot,fignm,'hist',pr.components);
                 
             end
             grnm2 = grnm; grnm2(isspace(grnm)) = '_';
@@ -346,4 +362,36 @@ for ic = 1:length(cellids)
         all_resvect{w}(ic) = res_vect(w);
     end
 end
+end
+
+
+function cellids = find_signPC_cellids(pr,PCdir,event,evty,plot_win,resdir,frnm,PC_results)
+if contains(pr.group,'LFP')
+    if strcmp(pr.rectype,'LFP')
+        fprintf('SignPC_LFP group only for intraop EEG\n');
+        return
+    end
+    PCdir_lfp = PCdir;
+    es = strfind(PCdir,'EEG');
+    PCdir_lfp(es:es+2) = 'LFP';
+    resdir_lfp = fullfile(PCdir_lfp,'by-channel',event,evty);
+    load(fullfile(resdir_lfp,[frnm '_' num2str(plot_win)],['PC_results_ds' pr.downsamp '_' num2str(pr.PC_win) 'win.mat']));
+end
+cellids0 = fieldnames(PC_results.Hilb_PC);
+if pr.PC_win==1
+    ray_sign = structfun(@(x) x.Ray_P<=0.05,PC_results.Hilb_PC);
+elseif pr.PC_win==2
+    ray_sign1 = structfun(@(x) x.Ray_P(1)<=0.05,PC_results.Hilb_PC);
+    ray_sign2 = structfun(@(x) x.Ray_P(2)<=0.05,PC_results.Hilb_PC);
+    ray_sign = ray_sign1|ray_sign2;
+end
+cellids = cellids0(ray_sign);
+for ic = 1:length(cellids)
+    cellids{ic}(end-1) = '.';
+end
+if strcmp(pr.rectype,'EEG')
+    load(fullfile(resdir,[frnm '_' num2str(plot_win)],['PC_results_ds' pr.downsamp '_' num2str(pr.PC_win) 'win.mat']));
+    
+end
+
 end

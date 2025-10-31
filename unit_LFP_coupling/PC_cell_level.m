@@ -37,7 +37,7 @@ function PC_cell_level(plot_win,freqs, fr_names,PCdir,EventTypes,SubEventTypes,v
 %   'chanmean'      if true, channel averaged LFP data is used, if false
 %                   LFP data is plotted channel-by-channel
 %                   (relevant only for intraop LFP data)
-%                   true | false (default value: true)
+%                   true | false (default value: false)
 %   'subevs'        if true, PC is calculated for trials separated based on
 %                   subevents deinfed in SUBEVENTTYPES
 %                   true | false (default value: false)
@@ -76,7 +76,7 @@ addRequired(prs,'fr_names',@iscell);
 addRequired(prs,'PCdir',@isdir);
 addRequired(prs,'EventTypes',@iscell);
 addRequired(prs,'SubEventTypes',@iscell);
-addParameter(prs,'chanmean',true,@islogical);
+addParameter(prs,'chanmean',false,@islogical);
 addParameter(prs,'subevs',false,@islogical);
 addParameter(prs,'subregion','all',@ischar);
 addParameter(prs,'isplot',true,@islogical);
@@ -212,10 +212,12 @@ for fri = 1:frnr
                 
 %                 [Ray_P_value{ic},Wat_P_uplim{ic},Res_vect{ic},MU{ic},Best_fit{ic}] =  ...
 %                     PC_figstat3(phas_smwins,smwin,cellidF,evty,figdir,pr.isplot,[],fignm,'hist');
-                
+                try
                 [Ray_P_value{ic},Wat_P_uplim{ic},Res_vect{ic},MU{ic},Best_fit{ic}] =  ...
-                    PC_figstat3(phas_smwins,smwin,cellidF,evty,figdir,pr.isplot,fignm,'hist');
-                
+                    PC_figstat3(phas_smwins,smwin,cellidF,evty,figdir,pr.isplot,fignm,'hist',[]);
+                catch
+                    2;
+                end
                 
                 
                 PC_results.Hilb_PC.(cellidF).Ray_P = Ray_P_value{ic};

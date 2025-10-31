@@ -1,26 +1,35 @@
 function [r_p,wat_pup,ftm,mu,bestmod,mufit,kappafit,pfit] = ...
-    PC_figstat3(sp_hilb,smwin,act_cellid,event,figdir,isplot,fignm,plottype)
+    PC_figstat3(sp_hilb,smwin,act_cellid,event,figdir,isplot,fignm,plottype, components)
 %PC_FIGSTAT3    Population phase histogram plot with statistics
 % 
 % Input parameters:
-%     SP_HILB     vector of complex or numeric values; 
-%                 if input data is complex, include phase + mrl values in plot
-%                 if input data is numeric (phase values), only phase
-%                 distr. is plotted
-%     SMWIN       1x2 vector, limits of time period (s) rel. to EVENT
-%                 from where phase values derive
-%     ACT_CELLID  char. array, unit ID
-%     EVENT       char. array, event label
-%     FIGDIR     path to save figure
-%     ISPLOT     true|false, if true figure is generated, if false only
-%               statistics are performed
-%     FIGNM     file name to save figure
-%     PLOTTYPE  type of polar plot
+%     SP_HILB       vector of complex or numeric values; 
+%                   if input data is complex, include phase + mrl values in plot
+%                   if input data is numeric (phase values), only phase
+%                   distr. is plotted
+%     SMWIN         1x2 vector, limits of time period (s) rel. to EVENT
+%                   from where phase values derive
+%     ACT_CELLID    char. array, unit ID
+%     EVENT         char. array, event label
+%     FIGDIR        path to save figure
+%     ISPLOT        true|false, if true figure is generated, if false only
+%                   statistics are performed
+%     FIGNM         file name to save figure
+%     PLOTTYPE      type of polar plot
 %       'scatter' | 'hist'
-
+%     COMPONENTS    1:N double vector | [], nr. of components in von
+%                   Mises distribution 
+%                   -if not empty, von Mises distributions composed by 
+%                   the mixture of different number of components (COMPONENTS)  
+%                   are fitted on the population phase distribution (it uses an 
+%                   expectation maximalization algorithm and AIC, BIC,
+%                   and parametric bootstrap p-value is calculated to find
+%                   the best fitting model.
+%                   -if empty [], fitting is not performed.
+%   
+%
 % See also: B_RAO3_MOD, B_WATSON, PC_POLAR 
-
-
+%
 % Johanna Petra Szabó, 10.2024
 % Lendulet Laboratory of Systems Neuroscience
 % Institute of Experimental Medicine, Budapest, Hungary
@@ -76,7 +85,9 @@ for ww = 1:PC_win
             
             
         elseif strcmp(plottype,'hist')
-            [polim, sign(ww), r_p(ww), ~, ~,ftm(ww)] = PC_polar(phasvals,binnr,stat,isplot,false);
+
+                [polim, sign(ww), r_p(ww), ~, ~,ftm(ww)] = PC_polar(phasvals,binnr,stat,isplot,false);
+      
             %             maxrL = 15;
             LL = rlim;
             maxrL = LL(2);
@@ -130,32 +141,33 @@ for ww = 1:PC_win
     
     wat_pup(ww) = wat_p{ww}(2);
     
-    
+%     
     spnr = colnr+ww;
-%     % Fitting mixture of von Mises distributuions
-%     if ~isempty(components)
-%         [AIC{ww},BIC{ww},mufit{ww},kappafit{ww},pfit{ww}] = phaselock_modes_simulation_param_mod(phasvals',components,0);
-%         
-%         figure(1);
-%         subplot(rownr,colnr,spnr)
-%         plot(AIC{ww})
-%         hold on
-%         plot(BIC{ww})
-%         legend({'AIC','BIC'});
-%         setmyplot_balazs(gca)
-%         
-%         [~, bestmodb] = min(BIC{ww});
-%         [~, bestmoda] = min(AIC{ww});
-%         if bestmodb~=bestmoda
-%             %         keyboard;
-%             bestmod(ww) = max([bestmoda bestmodb]);
-%         else
-%             bestmod(ww) = bestmodb;
-%         end
-%         %         keyboard;
-%     else
+    
+    % Fitting mixture of von Mises distributuions
+    if ~isempty(components)
+        [AIC{ww},BIC{ww},mufit{ww},kappafit{ww},pfit{ww}] = phaselock_modes_simulation_param_mod(phasvals',components,0);
+        
+        figure(1);
+        subplot(rownr,colnr,spnr)
+        plot(AIC{ww})
+        hold on
+        plot(BIC{ww})
+        legend({'AIC','BIC'});
+        setmyplot_balazs(gca)
+        
+        [~, bestmodb] = min(BIC{ww});
+        [~, bestmoda] = min(AIC{ww});
+        if bestmodb~=bestmoda
+            keyboard;
+            bestmod(ww) = max([bestmoda bestmodb]);
+        else
+            bestmod(ww) = bestmodb;
+        end
+        keyboard;
+    else
         [AIC{ww},BIC{ww},mufit{ww},kappafit{ww},pfit{ww}] = deal([]);
-%     end
+    end
     
     
     

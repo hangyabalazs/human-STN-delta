@@ -1,4 +1,4 @@
-function spike_triggered_average_PD(sess2analyse,chanmean,freq,save_window,plot_window,EventTypes)
+function spike_triggered_average_PD(sess2analyse,chanmean,frnm,freq,save_window,plot_window,EventTypes)
 %SPIKE_TRIGGERED_AVERAGE_PD  Spike-triggered average
 %  SPIKE_TRIGGERED_AVERAGE_PD(sess2analyse,chanmean,freq,save_window,plot_window,EventTypes)
 %       -Saves spike-triggered LFP epochs for sessions specified in SESS2ANALYSE, 
@@ -36,12 +36,12 @@ function spike_triggered_average_PD(sess2analyse,chanmean,freq,save_window,plot_
 if chanmean; chm = 1; else; chm =0; end;
 
 % Save spike-triggered epochs
-STA_PD(sess2analyse,false,chm,freq,save_window)
+% STA_PD(sess2analyse,true,chm,freq,save_window)
 
 
 % Plot spike-triggered averages for significantly coupled units
 rectype = sess2analyse(1).rectype;
-STavg_signPC(rectype,chm,EventTypes,freq,plot_window)
+STavg_signPC(rectype,chm,EventTypes,frnm,freq,plot_window)
 
 
 end
@@ -171,12 +171,12 @@ end
 
 
 %--------------------------------------------------------------------------
-function STavg_signPC(rectype,chanmean,EventTypes,freq,plot_window)
+function STavg_signPC(rectype,chanmean,EventTypes,frnm,freq,plot_window)
 
 global cell_dir
 PCdir = fullfile(cell_dir,'PC',[rectype '_phase_coupling']);
-frnm = 'dom_high_delta';
-PC_win = [-1.5 1.5];
+
+
 
 if contains(rectype,'LFP')&& chanmean==1
     chtit = ['chanmean_allSTN'];
@@ -186,17 +186,22 @@ elseif strcmp(rectype,'EEG')
     chtit = 'F4';
 end
 
+if contains(rectype,'LFP')
+    chlab =['chm' num2str(chanmean)];
+elseif strcmp(rectype,'EEG')
+    chlab = chtit;
+end
+
 for ei = 1:length(EventTypes)
     event = EventTypes{ei};
     
     resdir = fullfile(PCdir,chtit,event,event);
-    load(fullfile(resdir,[frnm '_' num2str(PC_win)],'PC_results_dsno_1win.mat'));
+    load(fullfile(resdir,[frnm '_' num2str(plot_window)],'PC_results_dsno_1win.mat'));
     
     cellids0 = fieldnames(PC_results.Hilb_PC);
     ray_sign = structfun(@(x) x.Ray_P<=0.05,PC_results.Hilb_PC);
     cellids = cellids0(ray_sign);
     
-    chlab =['chm' num2str(chanmean)];
     fnm = ['signPC_' event '_' chlab '_FR' num2str(freq) '_WIN' num2str(plot_window) '_SE'];
     STA_avg(cellids,rectype,fnm,chlab,freq, plot_window);
 end

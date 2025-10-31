@@ -1,4 +1,4 @@
-function PC_RT_correlation(param,event, fr_name, chanmean, rectype, group, dominantfreq,PC_win, ds,plot_win )
+function comp_vals = PC_RT_correlation(param,event, fr_name, chanmean, rectype, group, dominantfreq,PC_win, ds,plot_win,unit_group )
 %PC_RT_CORRELATION      RT/SSDp0.5 correaltion with spike-phase coupling (SPC)
 %   PC_RT_CORRELATION(param,event, fr_name, chanmean, rectype, group, dominantfreq,PC_win, ds,plot_win )
 %       correalates PARAM values with spike-phase coupling measures:
@@ -36,6 +36,8 @@ function PC_RT_correlation(param,event, fr_name, chanmean, rectype, group, domin
 % 
 %     PLOT_WIN          1x2 vector, time window relative to event timestamp in
 %                       sec, to use for SPC calculation
+%
+%     UNIT_GROUP        'SUA' | 'MUA'
 % 
 %  See also: PC_CELL_LEVEL, POLYPREDCICALL_MOD, LINCIRC_CORR2
 
@@ -53,7 +55,21 @@ if iscell(phas); phas = phas{1};end;
 if iscell(cellids); cellids = cellids{1}; end;
 if iscell(mrl); mrl = mrl{1}; end;
 
-    phas = mod(phas,2*pi);
+phas = mod(phas,2*pi);
+
+if contains(upper(unit_group),'UA')
+    
+    props = get_prop('SUA',cellids);
+    if strcmpi(unit_group,'SUA')
+        cellids = cellids(props);
+        mrl = mrl(props);
+        phas = phas(props);
+    elseif strcmpi(unit_group,'MUA')
+        cellids = cellids(~props);
+        mrl = mrl(~props);
+        phas = phas(~props);
+    end
+end
 
 if strcmp(param,'RT')
     % Get RT values
@@ -93,11 +109,65 @@ title({param ' vs MRL', ['Cells sign. coupled to ' frnmtit],[num2str(plot_win) '
 figdir =  fullfile(cell_dir,'PC',[param '_PC_correlation'],[rectype '_PC']); if ~isfolder(figdir); mkdir(figdir); end;
 fnm = fullfile(figdir,['MRL_'  group '_' frnm '_' event '_ds' ds '_' num2str(PC_win) 'win_' num2str(plot_win)]);
 
+if ~isempty(unit_group);
+    fnm = [fnm '_' unit_group];
+end
 saveas(fig, [fnm '.fig'])
 saveas(fig, [fnm '.jpg'])
 saveas(fig, [fnm '.pdf'])
 close(fig);
 
+%% Fit mixture of gaussian distr.
+
+
+ maxiter = 2000;
+    Options.Display = 'off';
+       Options.MaxIter = maxiter;
+    Options.TolFun = 1e-6;
+    compnr = 5;
+%     colors = [0 0 0; 0 0 .5; 1 0.5 0; .5 .5 .5; 0 .5 0];
+    
+comp_vals = cell(compnr,compnr);
+
+
+fig = figure;
+rng(1);
+for j = 1:compnr
+    subplot(2,compnr,j)
+GMModel = fitgmdist([mrl rtval],j,'start','plus','replicates',1,'options',Options);
+
+idx = cluster(GMModel,[mrl rtval]);
+
+Sc = nan(1,j);
+for cln = 1:j
+    Sc(cln) = scatter(mrl(idx==cln),rtval(idx==cln),'filled'); hold on;
+    comp_vals{j,cln} = [mrl(idx==cln) rtval(idx==cln)];
+end
+xlabel('MRL'); ylabel([param ' (s)']);
+
+legend(Sc, arrayfun(@(x) ['C.nr' num2str(x)],1:j,'UniformOutput',0),'Autoupdate','off');
+setmyplot_balazs(gca)
+xL = xlim; yL = ylim;
+gmPDF = @(x,y) arrayfun(@(x0,y0) pdf(GMModel,[x0 y0]),x,y);
+fc2 =fcontour(gmPDF,[xL yL]);
+bic(j) = GMModel.BIC;
+aic(j) = GMModel.AIC;
+% text(xL(1),yL(2)*.9,['AIC: ' num2str(GMModel.AIC) ', BIC: ' num2str(GMModel.BIC)])    
+end
+subplot(2,compnr,compnr+[1:compnr])
+plot(bic,'Color','g'); hold on; plot(aic,'Color','r'); legend({'BIC','AIC'})
+xticks([1:3]); xlabel('Nr. of components'); ylabel('BIC/AIC');
+suptitle({['Gaussian Mixture Model'], ...
+    ['Cells sign. coupled to ' frnmtit ', ' num2str(plot_win) ' sec around ' event]});
+
+setmyplot_balazs(gca)
+fnm = [fnm '_GMM'];
+
+saveas(fig, [fnm '.fig'])
+saveas(fig, [fnm '.jpg'])
+saveas(fig, [fnm '.pdf'])
+close(fig);
+%%
 % Phase
 fig = figure;
 
@@ -119,10 +189,14 @@ text(xL(1),yL(2)*0.9,['p=' num2str(pval) ', R=' num2str(Rval)]);
 
 xlabel('Resultant vector'); ylabel([param ' (s)']);
 title({param ' vs RV', ['Cells sign. coupled to ' frnmtit],[num2str(plot_win) ' sec around ' event]})
+setmyplot_balazs(gca);
 
 figdir =  fullfile(cell_dir,'PC',[param '_PC_correlation'],[rectype '_PC']); if ~isfolder(figdir); mkdir(figdir); end;
 fnm = fullfile(figdir,['RVphase_' group '_' frnm '_' event '_ds' ds '_' num2str(PC_win) 'win']);
 
+if ~isempty(unit_group);
+    fnm = [fnm '_' unit_group];
+end
 saveas(fig, [fnm '.fig'])
 saveas(fig, [fnm '.jpg'])
 saveas(fig, [fnm '.pdf'])
